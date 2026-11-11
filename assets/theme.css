@@ -1,0 +1,161 @@
+/* ==========================================================
+   慈恩園 前台雛形 共用樣式
+   - 沿用後台：主色 #61b0db、側欄淺藍 #d1e2fe/#e6f7ff、深字 #1e293b
+   - 字型同後台：EUDC → 微軟正黑體 → 蘋方
+   - 民眾版調整：字級放大、觸控目標 ≥ 48px（iPad ≥ 56px）、高對比、少層級
+   ========================================================== */
+
+:root {
+  --zn-primary: #61b0db;
+  --zn-primary-hover: #4a9ac8;
+  --zn-primary-deep: #2f7fae;   /* 文字用，對比 ≥ 4.5 */
+  --zn-primary-soft: #e6f7ff;
+  --zn-primary-soft-2: #d1e2fe;
+  --zn-ink: #1e293b;
+  --zn-ink-2: #475569;
+  --zn-ink-3: #64748b;
+  --zn-line: #e2e8f0;
+  --zn-bg: #f3f6f9;
+  --zn-gold: #b8893b;           /* 法會／莊重點綴 */
+  --zn-gold-soft: #fbf5e9;
+  --zn-success: #16a34a;
+  --zn-warning: #d97706;
+  --zn-error: #dc2626;
+}
+
+/* DaisyUI 4 light 主題覆寫（正式定義 primary，而非只改 .btn-primary） */
+[data-theme='light'] {
+  --p: 69.8% 0.105 236.5;      /* #61b0db */
+  --pc: 100% 0 0;
+  --rounded-box: 1rem;
+  --rounded-btn: 0.75rem;
+}
+
+html, body {
+  font-family: 'EUDC', '微軟正黑體', 'Microsoft JhengHei', 'PingFang TC', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--zn-ink);
+  background: var(--zn-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+body { font-size: 18px; line-height: 1.7; }
+
+/* ---------- 按鈕 ---------- */
+.btn { min-height: 3rem; height: auto; font-size: 1.0625rem; font-weight: 600; letter-spacing: .02em; }
+.btn-lg { min-height: 3.75rem; font-size: 1.25rem; padding-inline: 2rem; }
+.btn-xl { min-height: 4.5rem; font-size: 1.375rem; padding-inline: 2.5rem; border-radius: 1rem; }
+.btn-primary { background-color: var(--zn-primary); border-color: var(--zn-primary); color: #fff; }
+.btn-primary:hover { background-color: var(--zn-primary-hover); border-color: var(--zn-primary-hover); }
+.btn-primary:disabled, .btn-primary[disabled] { background-color: #a3cfe5; border-color: #a3cfe5; color: #fff; opacity: .8; }
+.btn-soft { background: var(--zn-primary-soft); color: var(--zn-primary-deep); border: 1px solid #bfe3f5; }
+.btn-soft:hover { background: #d4effc; border-color: #9fd3ee; }
+.btn-ghost-gray { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.btn-ghost-gray:hover { background: #e5e7eb; }
+.btn-danger { background: #fff; color: var(--zn-error); border: 2px solid #fca5a5; }
+.btn-danger:hover { background: #fef2f2; border-color: var(--zn-error); }
+.btn-success { background: var(--zn-success); border-color: var(--zn-success); color: #fff; }
+.btn-success:hover { background: #15803d; border-color: #15803d; }
+
+/* ---------- 表單 ---------- */
+.input, .select, .textarea { border: 1px solid #cbd5e1; background: #fff; font-size: 1.0625rem; }
+.input, .select { min-height: 3.25rem; height: 3.25rem; }
+.input-lg, .select-lg { min-height: 3.75rem; height: 3.75rem; font-size: 1.25rem; }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--zn-primary); outline: 3px solid rgba(97,176,219,.25); outline-offset: 0; }
+.zn-label { display: block; font-weight: 600; font-size: 1rem; margin-bottom: .375rem; color: var(--zn-ink); }
+.zn-label .req { color: var(--zn-error); font-size: 1.15em; margin-right: .15em; }
+.zn-hint { font-size: .9375rem; color: var(--zn-ink-3); margin-top: .25rem; }
+.zn-error-text { font-size: .9375rem; color: var(--zn-error); margin-top: .25rem; }
+
+/* ---------- 卡片／區塊 ---------- */
+.zn-card { background: #fff; border-radius: 1rem; border: 1px solid var(--zn-line); box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 16px rgba(15,23,42,.04); }
+.zn-card-pad { padding: 1.5rem; }
+.zn-section-title { font-size: 1.25rem; font-weight: 700; color: var(--zn-ink); display: flex; align-items: center; gap: .5rem; }
+.zn-section-title::before { content: ''; width: 4px; height: 1.1em; border-radius: 2px; background: var(--zn-primary); }
+
+/* 大型功能卡（主選單、首頁入口） */
+.zn-tile { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; padding: 1.75rem; background: #fff; border: 1px solid var(--zn-line); border-radius: 1.25rem; text-align: left; transition: transform .15s, box-shadow .15s, border-color .15s; cursor: pointer; width: 100%; }
+.zn-tile:hover { border-color: #9fd3ee; box-shadow: 0 8px 24px rgba(97,176,219,.18); transform: translateY(-2px); }
+.zn-tile:active { transform: translateY(0); }
+.zn-tile-icon { width: 3.5rem; height: 3.5rem; border-radius: 1rem; display: grid; place-items: center; background: var(--zn-primary-soft); color: var(--zn-primary-deep); }
+.zn-tile-title { font-size: 1.375rem; font-weight: 700; }
+.zn-tile-desc { font-size: 1rem; color: var(--zn-ink-3); line-height: 1.6; }
+
+/* ---------- 狀態標籤（與後台 5.0 通用元件一致） ---------- */
+.zn-badge { display: inline-flex; align-items: center; gap: .25rem; padding: .125rem .75rem; border-radius: 999px; font-size: .9375rem; font-weight: 600; white-space: nowrap; }
+.zn-badge-gray   { background: #f3f4f6; color: #4b5563; }
+.zn-badge-green  { background: #dcfce7; color: #166534; }
+.zn-badge-red    { background: #fee2e2; color: #991b1b; }
+.zn-badge-yellow { background: #fef9c3; color: #854d0e; }
+.zn-badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.zn-badge-purple { background: #f3e8ff; color: #7e22ce; }
+.zn-badge-orange { background: #ffedd5; color: #9a3412; }
+.zn-badge-gold   { background: var(--zn-gold-soft); color: #8a6420; border: 1px solid #ecd9b0; }
+
+/* ---------- 步驟指示 ---------- */
+.zn-steps { display: flex; align-items: center; gap: .5rem; }
+.zn-step { display: flex; align-items: center; gap: .5rem; color: var(--zn-ink-3); font-weight: 600; font-size: 1rem; white-space: nowrap; }
+.zn-step-dot { width: 2.25rem; height: 2.25rem; border-radius: 999px; display: grid; place-items: center; border: 2px solid #cbd5e1; background: #fff; font-size: 1rem; }
+.zn-step.is-active { color: var(--zn-primary-deep); }
+.zn-step.is-active .zn-step-dot { border-color: var(--zn-primary); background: var(--zn-primary); color: #fff; box-shadow: 0 0 0 4px rgba(97,176,219,.2); }
+.zn-step.is-done { color: var(--zn-ink-2); }
+.zn-step.is-done .zn-step-dot { border-color: var(--zn-primary); color: var(--zn-primary-deep); background: var(--zn-primary-soft); }
+.zn-step-line { flex: 1; height: 2px; background: #e2e8f0; min-width: 1rem; }
+.zn-step-line.is-done { background: var(--zn-primary); }
+
+/* ---------- 頁首 ---------- */
+.zn-topbar { background: #fff; border-bottom: 1px solid var(--zn-line); }
+.zn-brand { display: flex; align-items: center; gap: .625rem; font-weight: 800; font-size: 1.25rem; color: var(--zn-ink); letter-spacing: .04em; }
+.zn-brand-mark { width: 2.25rem; height: 2.25rem; border-radius: .75rem; background: linear-gradient(135deg, #61b0db, #2f7fae); color: #fff; display: grid; place-items: center; font-size: 1.1rem; font-weight: 800; }
+
+/* ---------- 資訊列（label / value） ---------- */
+.zn-kv { display: grid; grid-template-columns: 8rem 1fr; gap: .5rem 1rem; font-size: 1.0625rem; }
+.zn-kv dt { color: var(--zn-ink-3); }
+.zn-kv dd { color: var(--zn-ink); font-weight: 600; word-break: break-all; }
+
+/* ---------- 提示框 ---------- */
+.zn-note { border-radius: .875rem; padding: 1rem 1.25rem; display: flex; gap: .75rem; font-size: 1rem; line-height: 1.65; }
+.zn-note-info { background: var(--zn-primary-soft); color: #1f5f86; border: 1px solid #bfe3f5; }
+.zn-note-warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.zn-note-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.zn-note-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+/* ---------- 簽名板 ---------- */
+.zn-sign-pad { background: #fff; border: 2px dashed #94a3b8; border-radius: 1rem; touch-action: none; width: 100%; display: block; cursor: crosshair; }
+
+/* ---------- 選擇卡（勾選資產、選擇項目） ---------- */
+.zn-choice { border: 2px solid var(--zn-line); border-radius: 1rem; padding: 1rem 1.25rem; background: #fff; cursor: pointer; transition: border-color .15s, background .15s; display: flex; gap: 1rem; align-items: flex-start; }
+.zn-choice:hover { border-color: #9fd3ee; }
+.zn-choice.is-on { border-color: var(--zn-primary); background: #f3fbff; box-shadow: 0 0 0 3px rgba(97,176,219,.15); }
+.zn-check { width: 1.75rem; height: 1.75rem; border-radius: .5rem; border: 2px solid #94a3b8; display: grid; place-items: center; flex-shrink: 0; background: #fff; color: #fff; }
+.zn-choice.is-on .zn-check { background: var(--zn-primary); border-color: var(--zn-primary); }
+
+/* ---------- 手機底部導覽（會員專區） ---------- */
+.zn-tabbar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--zn-line); display: grid; grid-template-columns: repeat(5, 1fr); padding-bottom: env(safe-area-inset-bottom); z-index: 40; }
+.zn-tabbar button { display: flex; flex-direction: column; align-items: center; gap: .125rem; padding: .5rem 0 .625rem; font-size: .8125rem; color: var(--zn-ink-3); font-weight: 600; }
+.zn-tabbar button.is-on { color: var(--zn-primary-deep); }
+
+/* ---------- 雛形標記 ---------- */
+/* 貼左側邊緣直排，避免遮住底部操作列 */
+.zn-proto-flag { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 60; background: rgba(30,41,59,.72); color: #fff; font-size: .75rem; line-height: 1.2; padding: .625rem .25rem; border-radius: 0 .5rem .5rem 0; writing-mode: vertical-rl; letter-spacing: .1em; pointer-events: none; bottom: auto !important; right: auto !important; }
+
+/* ---------- 動畫 ---------- */
+[x-cloak] { display: none !important; }
+.zn-fade { animation: znFade .25s ease-out; }
+@keyframes znFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- 列印（申請單／報名回執） ---------- */
+@media print {
+  .no-print, .zn-proto-flag, .zn-tabbar { display: none !important; }
+  body { background: #fff; }
+}
+
+/* 手機寬度不顯示雛形標記，避免壓到內容 */
+@media (max-width: 640px) { .zn-proto-flag { display: none !important; } }
+
+/* ---------- RWD（member/ceremony/locate） ---------- */
+@media (max-width: 479px) {
+  .zn-kv { grid-template-columns: 6rem 1fr; gap: .5rem .75rem; }
+  .zn-tile { padding: 1.25rem; }
+}
+@media (min-width: 1024px) {
+  .zn-card-pad { padding: 1.75rem; }
+}

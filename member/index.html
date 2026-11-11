@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="icon" href="../assets/img/favicon.ico">
+<script src="../assets/mock.js"></script><script src="../assets/common.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<title>慈恩園 會員專區</title>
+<style>
+  /* 桌機：底部導覽與內容同寬，置中 */
+  .zn-tabbar { max-width: 28rem; margin: 0 auto; }
+  .zn-tabbar button { min-height: 3.5rem; }
+  .line-btn { background: #06C755; color: #fff; border: 0; }
+  .line-btn:hover { background: #05a847; }
+  input[type=number]::-webkit-inner-spin-button { display: none; }
+  .modal-box { max-width: 28rem; }
+  /* ---- RWD ---- */
+  @media (min-width: 640px) { .zn-tabbar { max-width: 42rem; } }
+  @media (min-width: 1024px) {
+    #app section.zn-fade { max-width: 68rem; margin-left: auto; margin-right: auto; padding: 2rem 2rem 0; }
+    #app section.zn-fade.narrow { max-width: 44rem; }
+    #app .is-auth section.zn-fade { max-width: 32rem; padding-top: 4rem; }
+    #app .is-auth header.sticky { background: transparent; border-bottom: 0; }
+  }
+  .side-nav button { display: flex; align-items: center; gap: .875rem; width: 100%; min-height: 3.5rem; padding: 0 1.25rem; border-radius: .875rem; font-size: 1.125rem; font-weight: 600; color: var(--zn-ink-2); text-align: left; transition: background .15s; }
+  .side-nav button:hover { background: #f1f5f9; }
+  .side-nav button.is-on { background: var(--zn-primary-soft); color: var(--zn-primary-deep); }
+</style>
+</head>
+<body>
+
+<div id="app" x-data="memberApp()" x-cloak>
+
+  <!-- 桌機背景：模糊外觀照 -->
+  <div class="hidden md:block fixed inset-0 overflow-hidden z-0" aria-hidden="true">
+    <div class="absolute inset-0" style="background:url(../assets/img/hero.jpg) center/cover;filter:blur(22px);transform:scale(1.12);opacity:.55"></div>
+  </div>
+
+  <!-- 雛形切換（右上，低調） -->
+  <div class="fixed top-2 right-2 z-50" @click.outside="demoOpen=false">
+    <button type="button" class="h-8 px-3 rounded-full bg-white/80 backdrop-blur border border-slate-200 text-xs text-slate-500 flex items-center gap-1" @click="demoOpen=!demoOpen">
+      <span class="inline-flex"><i data-lucide="flask-conical" class="w-3.5 h-3.5"></i></span> 雛形切換
+    </button>
+    <div x-show="demoOpen" x-transition class="absolute right-0 mt-1 w-60 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-lg border border-slate-200 p-1">
+      <button type="button" class="w-full text-left px-3 h-12 rounded-lg hover:bg-slate-50 text-base" :class="demo==='guest'&&'bg-sky-50 font-bold'" @click="setDemo('guest')">未登入</button>
+      <button type="button" class="w-full text-left px-3 h-12 rounded-lg hover:bg-slate-50 text-base" :class="demo==='pending'&&'bg-sky-50 font-bold'" @click="setDemo('pending')">待綁定會員（M00058）</button>
+      <button type="button" class="w-full text-left px-3 h-12 rounded-lg hover:bg-slate-50 text-base" :class="demo==='active'&&'bg-sky-50 font-bold'" @click="setDemo('active')">已啟用會員（王大明 C0001024）</button>
+    </div>
+  </div>
+
+  <!-- 手機寬度欄位 -->
+  <!-- 桌機：左側導覽（已登入）／左側照片（登入、註冊） -->
+  <aside class="hidden lg:flex fixed inset-y-0 left-0 w-64 z-30 flex-col bg-white border-r border-slate-200 p-4" x-show="showTabbar">
+    <div class="zn-brand px-2 py-3 mb-4"><span class="zn-brand-mark">慈</span>慈恩園 會員專區</div>
+    <nav class="side-nav space-y-1" aria-label="主選單">
+      <button type="button" :class="activeTab==='home' && 'is-on'" @click="tab('home')"><span class="inline-flex"><i data-lucide="house" class="w-6 h-6"></i></span><span>首頁</span></button>
+      <button type="button" :class="activeTab==='assets' && 'is-on'" @click="tab('assets')"><span class="relative inline-flex"><i data-lucide="map-pin" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>我的位置</span></button>
+      <button type="button" :class="activeTab==='cert' && 'is-on'" @click="tab('cert')"><span class="relative inline-flex"><i data-lucide="qr-code" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>存放證</span></button>
+      <button type="button" :class="activeTab==='pay' && 'is-on'" @click="tab('pay')"><span class="relative inline-flex"><i data-lucide="wallet" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>繳費</span></button>
+      <button type="button" :class="activeTab==='me' && 'is-on'" @click="tab('me')"><span class="inline-flex"><i data-lucide="user" class="w-6 h-6"></i></span><span>我的</span></button>
+    </nav>
+    <p class="mt-auto px-2 text-sm text-slate-500">服務專線 <span x-text="ZN.SITE.tel"></span></p>
+  </aside>
+  <div class="hidden lg:block fixed inset-y-0 left-0 w-[45%] z-20 overflow-hidden" x-show="!showTabbar" aria-hidden="true">
+    <img src="../assets/img/hero.jpg" alt="" class="w-full h-full object-cover">
+    <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(15,40,60,.15),rgba(15,40,60,.75))"></div>
+    <div class="absolute bottom-0 left-0 right-0 p-10 text-white">
+      <div class="zn-brand text-white"><span class="zn-brand-mark">慈</span>慈恩園</div>
+      <p class="mt-3 text-2xl font-bold tracking-wide">會員專區</p>
+      <p class="mt-1 text-lg text-white/85">查詢名下位置、出示數位存放證、線上回報管理費繳費。</p>
+    </div>
+  </div>
+
+  <!-- 內容欄：手機窄欄、平板置中、桌機滿版（含左側導覽） -->
+  <div class="relative z-10 w-full max-w-md sm:max-w-2xl lg:max-w-none mx-auto min-h-screen bg-[#f3f6f9] md:shadow-2xl lg:shadow-none" :class="[showTabbar ? 'pb-28 lg:pb-10 lg:pl-64' : 'pb-10 lg:pl-[45%] is-auth']">
+
+    <!-- 頁首：sticky 白底，子頁有返回鍵 -->
+    <header class="sticky top-0 z-30 bg-white border-b border-slate-200 grid items-center" style="grid-template-columns:3.5rem 1fr 3.5rem;min-height:3.5rem" x-show="view!=='welcome'">
+      <div>
+        <button type="button" class="w-14 h-14 grid place-items-center text-slate-600" x-show="isSub" @click="back()" aria-label="返回">
+          <span class="inline-flex"><i data-lucide="chevron-left" class="w-7 h-7"></i></span>
+        </button>
+      </div>
+      <h1 class="text-center text-xl font-bold" x-text="titles[view]"></h1>
+      <div></div>
+    </header>
+
+    <!-- ===== 畫面 1：歡迎／登入選擇 ===== -->
+    <template x-if="screen==='welcome'">
+      <section class="zn-fade">
+        <div class="relative h-72 overflow-hidden lg:hidden">
+          <img src="../assets/img/hero.jpg" alt="慈恩園外觀" class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-[#f3f6f9]"></div>
+        </div>
+        <div class="px-5 -mt-14 lg:mt-0 relative">
+          <div class="zn-brand-mark !w-14 !h-14 !text-2xl shadow-lg mb-3">慈</div>
+          <h1 class="text-3xl font-extrabold tracking-wide">慈恩園 會員專區</h1>
+          <p class="mt-2 text-slate-600">查詢名下位置、出示數位存放證、線上回報管理費繳費，在家就能辦。</p>
+
+          <div class="mt-6 space-y-3">
+            <button type="button" class="btn btn-lg w-full line-btn" @click="loginLine()">
+              <span class="inline-flex"><i data-lucide="message-circle" class="w-6 h-6"></i></span> 使用 LINE 登入
+            </button>
+            <button type="button" class="btn btn-lg btn-primary w-full" @click="openLogin('phone')">
+              <span class="inline-flex"><i data-lucide="smartphone" class="w-6 h-6"></i></span> 手機號碼登入
+            </button>
+            <button type="button" class="btn btn-lg btn-soft w-full" @click="openLogin('email')">
+              <span class="inline-flex"><i data-lucide="mail" class="w-6 h-6"></i></span> Email 登入
+            </button>
+          </div>
+
+          <p class="text-center mt-6 text-lg">
+            還沒有帳號？<button type="button" class="font-bold underline text-[#2f7fae] min-h-[48px] px-1" @click="openRegister()">立即註冊</button>
+          </p>
+          <p class="text-center zn-hint mt-2">服務專線 <span x-text="ZN.SITE.tel"></span></p>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 1b：手機／Email 登入 ===== -->
+    <template x-if="screen==='login'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <div class="zn-card zn-card-pad space-y-5">
+          <h2 class="text-2xl font-bold" x-text="loginMode==='phone' ? '手機號碼登入' : 'Email 登入'"></h2>
+          <div>
+            <label class="zn-label" x-text="loginMode==='phone' ? '手機號碼' : 'Email'"></label>
+            <input class="input input-lg w-full" x-model="loginId" :type="loginMode==='phone' ? 'tel' : 'email'" :inputmode="loginMode==='phone' ? 'numeric' : 'email'" autocomplete="username" :placeholder="loginMode==='phone' ? '例如 0912345678' : 'name@example.com'">
+          </div>
+          <div>
+            <label class="zn-label">密碼</label>
+            <div class="relative">
+              <input class="input input-lg w-full pr-14" x-model="loginPwd" :type="showPwd ? 'text' : 'password'" autocomplete="current-password">
+              <button type="button" class="absolute right-0 top-0 w-14 h-full grid place-items-center text-slate-500" @click="showPwd=!showPwd" aria-label="顯示或隱藏密碼">
+                <span x-show="!showPwd" class="inline-flex"><i data-lucide="eye" class="w-6 h-6"></i></span>
+                <span x-show="showPwd" class="inline-flex"><i data-lucide="eye-off" class="w-6 h-6"></i></span>
+              </button>
+            </div>
+          </div>
+          <p class="zn-error-text" x-show="loginErr" x-text="loginErr"></p>
+          <button type="button" class="btn btn-xl btn-primary w-full" @click="doLogin()">登入</button>
+          <p class="zn-hint text-center">示範帳號已幫您填好，直接按「登入」即可。</p>
+        </div>
+        <div class="text-center space-y-1">
+          <button type="button" class="font-bold underline text-[#2f7fae] min-h-[48px]" @click="openLogin(loginMode==='phone' ? 'email' : 'phone')" x-text="loginMode==='phone' ? '改用 Email 登入' : '改用手機號碼登入'"></button><br>
+          <button type="button" class="font-bold underline text-[#2f7fae] min-h-[48px]" @click="openRegister()">還沒有帳號？立即註冊</button>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 2：註冊（無 OTP，MEMB-003） ===== -->
+    <template x-if="screen==='register'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <!-- 步驟條 -->
+        <div class="zn-steps px-1">
+          <div class="zn-step" :class="stepCls(1)"><span class="zn-step-dot" x-text="reg.step>1 ? '✓' : '1'"></span><span x-show="reg.step===1">選擇方式</span></div>
+          <div class="zn-step-line" :class="reg.step>1 && 'is-done'"></div>
+          <div class="zn-step" :class="stepCls(2)"><span class="zn-step-dot" x-text="reg.step>2 ? '✓' : '2'"></span><span x-show="reg.step===2">填寫資料</span></div>
+          <div class="zn-step-line" :class="reg.step>2 && 'is-done'"></div>
+          <div class="zn-step" :class="stepCls(3)"><span class="zn-step-dot">3</span><span x-show="reg.step===3">完成</span></div>
+        </div>
+
+        <!-- 步驟 1：選擇方式 -->
+        <div x-show="reg.step===1" class="space-y-3">
+          <h2 class="text-2xl font-bold">您想用哪種方式註冊？</h2>
+          <button type="button" class="zn-choice w-full text-left" :class="reg.method==='line' && 'is-on'" @click="reg.method='line'">
+            <span class="zn-tile-icon !bg-green-50 !text-[#06C755] shrink-0"><i data-lucide="message-circle" class="w-7 h-7"></i></span>
+            <span class="flex-1"><b class="text-xl block">LINE 帳號</b><span class="zn-hint">最快，不用另外記密碼</span></span>
+            <span class="zn-check"><span x-show="reg.method==='line'">✓</span></span>
+          </button>
+          <button type="button" class="zn-choice w-full text-left" :class="reg.method==='phone' && 'is-on'" @click="reg.method='phone'">
+            <span class="zn-tile-icon shrink-0"><i data-lucide="smartphone" class="w-7 h-7"></i></span>
+            <span class="flex-1"><b class="text-xl block">手機號碼</b><span class="zn-hint">用手機號碼加密碼登入</span></span>
+            <span class="zn-check"><span x-show="reg.method==='phone'">✓</span></span>
+          </button>
+          <button type="button" class="zn-choice w-full text-left" :class="reg.method==='email' && 'is-on'" @click="reg.method='email'">
+            <span class="zn-tile-icon shrink-0"><i data-lucide="mail" class="w-7 h-7"></i></span>
+            <span class="flex-1"><b class="text-xl block">Email</b><span class="zn-hint">用電子郵件加密碼登入</span></span>
+            <span class="zn-check"><span x-show="reg.method==='email'">✓</span></span>
+          </button>
+          <button type="button" class="btn btn-lg btn-primary w-full mt-2" :disabled="!reg.method" @click="reg.step=2; reg.tried=false">下一步</button>
+        </div>
+
+        <!-- 步驟 2：填寫資料 -->
+        <div x-show="reg.step===2" class="zn-card zn-card-pad space-y-5">
+          <h2 class="text-2xl font-bold">請填寫基本資料</h2>
+          <div class="zn-note zn-note-info">
+            <span class="shrink-0 inline-flex"><i data-lucide="info" class="w-6 h-6"></i></span>
+            <span>註冊<b>不需要</b>簡訊驗證碼，填完直接送出即可。</span>
+          </div>
+          <div x-show="reg.method==='line'" class="zn-note zn-note-success">
+            <span class="shrink-0 inline-flex"><i data-lucide="check-circle-2" class="w-6 h-6"></i></span>
+            <span>已取得 LINE 授權（示範）。請再確認您的姓名。</span>
+          </div>
+          <div>
+            <label class="zn-label"><span class="req">*</span>姓名</label>
+            <input class="input input-lg w-full" x-model="reg.name" placeholder="請輸入真實姓名" autocomplete="name">
+            <p class="zn-error-text" x-show="reg.tried && regErr.name" x-text="regErr.name"></p>
+          </div>
+          <div x-show="reg.method!=='line'">
+            <label class="zn-label"><span class="req">*</span><span x-text="reg.method==='phone' ? '手機號碼' : 'Email'"></span></label>
+            <input class="input input-lg w-full" x-model="reg.contact" :type="reg.method==='phone' ? 'tel' : 'email'" :inputmode="reg.method==='phone' ? 'numeric' : 'email'" :placeholder="reg.method==='phone' ? '例如 0912345678' : 'name@example.com'">
+            <p class="zn-error-text" x-show="reg.tried && regErr.contact" x-text="regErr.contact"></p>
+          </div>
+          <div x-show="reg.method!=='line'">
+            <label class="zn-label"><span class="req">*</span>設定密碼</label>
+            <input class="input input-lg w-full" type="password" x-model="reg.pwd" autocomplete="new-password" placeholder="至少 8 個字">
+            <p class="zn-error-text" x-show="reg.tried && regErr.pwd" x-text="regErr.pwd"></p>
+          </div>
+          <div x-show="reg.method!=='line'">
+            <label class="zn-label"><span class="req">*</span>再輸入一次密碼</label>
+            <input class="input input-lg w-full" type="password" x-model="reg.pwd2" autocomplete="new-password">
+            <p class="zn-error-text" x-show="reg.tried && regErr.pwd2" x-text="regErr.pwd2"></p>
+          </div>
+          <div>
+            <label class="zn-choice" :class="reg.agree && 'is-on'">
+              <input type="checkbox" class="checkbox checkbox-primary w-7 h-7 mt-1" x-model="reg.agree">
+              <span class="flex-1">我已閱讀並同意<button type="button" class="underline font-bold text-[#2f7fae]" @click.prevent="sheet='privacy'">個人資料蒐集與使用告知</button></span>
+            </label>
+            <p class="zn-error-text" x-show="reg.tried && regErr.agree" x-text="regErr.agree"></p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button type="button" class="btn btn-lg btn-ghost-gray" @click="reg.step=1">上一步</button>
+            <button type="button" class="btn btn-lg btn-primary" @click="submitRegister()">送出註冊</button>
+          </div>
+        </div>
+
+        <!-- 步驟 3：完成 -->
+        <div x-show="reg.step===3" class="space-y-4">
+          <div class="text-center py-2">
+            <div class="w-20 h-20 mx-auto rounded-full bg-green-100 text-green-600 grid place-items-center"><i data-lucide="check" class="w-12 h-12"></i></div>
+            <h2 class="text-2xl font-bold mt-3">註冊完成</h2>
+            <p class="mt-1">帳號狀態：<span :class="ZN.badge('待綁定')">待綁定</span></p>
+          </div>
+          <div class="zn-card zn-card-pad">
+            <h3 class="zn-section-title mb-4">接下來請這樣做</h3>
+            <ol class="space-y-5">
+              <li class="flex gap-3">
+                <span class="w-10 h-10 rounded-full bg-green-100 text-green-700 grid place-items-center font-bold text-xl shrink-0">①</span>
+                <div><p class="font-bold text-lg">已完成線上註冊</p><p class="zn-hint">您的帳號已建立。</p></div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-10 h-10 rounded-full bg-[#61b0db] text-white grid place-items-center font-bold text-xl shrink-0">②</span>
+                <div class="flex-1">
+                  <p class="font-bold text-lg">攜帶身分證正本至服務處臨櫃綁定</p>
+                  <div class="zn-note zn-note-info mt-2 !p-3 text-base"><div>
+                    <p><b><span x-text="ZN.SITE.service"></span></b></p>
+                    <p>時間：<span x-text="ZN.SITE.hours"></span></p>
+                    <p>地址：<span x-text="ZN.SITE.addr"></span></p>
+                    <p>電話：<a class="underline font-bold" :href="'tel:'+ZN.SITE.tel" x-text="ZN.SITE.tel"></a></p>
+                  </div></div>
+                </div>
+              </li>
+              <li class="flex gap-3">
+                <span class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 grid place-items-center font-bold text-xl shrink-0">③</span>
+                <div><p class="font-bold text-lg">綁定完成即可查看名下資產</p><p class="zn-hint">位置、存放證、管理費都能在手機上看。</p></div>
+              </li>
+            </ol>
+          </div>
+          <button type="button" class="btn btn-lg line-btn w-full" @click="toast('示範：已開啟 LINE 官方帳號加入頁')">
+            <span class="inline-flex"><i data-lucide="bell-ring" class="w-6 h-6"></i></span> 加入 LINE 官方帳號接收通知
+          </button>
+          <button type="button" class="btn btn-lg btn-primary w-full" @click="finishRegister()">進入會員專區</button>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 3：待綁定首頁 ===== -->
+    <template x-if="screen==='pendingHome'">
+      <section class="narrow zn-fade px-4 pt-5 space-y-4">
+        <div class="zn-card zn-card-pad">
+          <p class="text-2xl font-bold" x-text="(member.lineName || '會員') + ' 您好'"></p>
+          <p class="mt-2">帳號狀態：<span :class="ZN.badge('待綁定')">待綁定</span></p>
+          <p class="zn-hint mt-1">完成臨櫃綁定後，才能查看名下資產。</p>
+        </div>
+
+        <div class="zn-card zn-card-pad">
+          <h3 class="zn-section-title mb-4">接下來請這樣做</h3>
+          <ol class="space-y-5">
+            <li class="flex gap-3">
+              <span class="w-10 h-10 rounded-full bg-green-100 text-green-700 grid place-items-center font-bold text-xl shrink-0">①</span>
+              <div><p class="font-bold text-lg">已完成線上註冊</p></div>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-10 h-10 rounded-full bg-[#61b0db] text-white grid place-items-center font-bold text-xl shrink-0">②</span>
+              <div class="flex-1">
+                <p class="font-bold text-lg">攜帶身分證正本至服務處臨櫃綁定</p>
+                <div class="zn-note zn-note-info mt-2 !p-3 text-base"><div>
+                  <p><b x-text="ZN.SITE.service"></b></p>
+                  <p>時間：<span x-text="ZN.SITE.hours"></span></p>
+                  <p>地址：<span x-text="ZN.SITE.addr"></span></p>
+                  <p>電話：<a class="underline font-bold" :href="'tel:'+ZN.SITE.tel" x-text="ZN.SITE.tel"></a></p>
+                </div></div>
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-10 h-10 rounded-full bg-slate-100 text-slate-500 grid place-items-center font-bold text-xl shrink-0">③</span>
+              <div><p class="font-bold text-lg">綁定完成即可查看名下資產</p></div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="zn-card zn-card-pad text-center">
+          <h3 class="zn-section-title mb-1 justify-center">我的綁定憑證</h3>
+          <p class="zn-hint mb-3">到櫃檯時，請出示此畫面給服務人員，可快速找到您的帳號。</p>
+          <div class="inline-block p-2 border border-slate-200 rounded-2xl bg-white">
+            <img :src="memberQR" alt="綁定憑證 QR" class="w-56 h-56">
+          </div>
+          <p class="mt-2 font-bold tracking-widest text-lg" x-text="member.id"></p>
+          <p class="zn-hint">會員編號</p>
+        </div>
+
+        <div class="zn-note zn-note-warn">
+          <span class="shrink-0 inline-flex"><i data-lucide="lock" class="w-6 h-6"></i></span>
+          <span>「我的位置」「存放證」「繳費」需綁定後才能使用，下方按鈕已先上鎖。</span>
+        </div>
+        <button type="button" class="btn btn-lg line-btn w-full" @click="toast('示範：已開啟 LINE 官方帳號加入頁')">
+          <span class="inline-flex"><i data-lucide="bell-ring" class="w-6 h-6"></i></span> 加入 LINE 官方帳號接收通知
+        </button>
+      </section>
+    </template>
+
+    <!-- 待綁定時的上鎖畫面 -->
+    <template x-if="screen==='locked'">
+      <section class="narrow zn-fade px-4 pt-10">
+        <div class="zn-card zn-card-pad text-center space-y-4">
+          <div class="w-20 h-20 mx-auto rounded-full bg-amber-50 text-amber-600 grid place-items-center"><i data-lucide="lock" class="w-10 h-10"></i></div>
+          <h2 class="text-2xl font-bold">此功能尚未開放</h2>
+          <p>您的帳號還是「待綁定」。請攜帶身分證正本到服務處臨櫃綁定，完成後就能使用。</p>
+          <button type="button" class="btn btn-lg btn-primary w-full" @click="go('home')">查看綁定步驟</button>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 4：首頁（已啟用） ===== -->
+    <template x-if="screen==='home'">
+      <section class="zn-fade px-4 pt-5 space-y-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-2xl font-extrabold"><span x-text="cust.name"></span> 您好</p>
+            <p class="zn-hint">客戶編號 <span x-text="cust.id"></span></p>
+          </div>
+          <span :class="ZN.badge('已啟用')">已綁定</span>
+        </div>
+
+        <!-- 待繳費提醒 -->
+        <div class="zn-card zn-card-pad border-amber-300 bg-amber-50 space-y-3" x-show="dueBills.length">
+          <div class="flex gap-3 items-start">
+            <span class="shrink-0 text-amber-600 inline-flex"><i data-lucide="bell" class="w-7 h-7"></i></span>
+            <p class="text-lg font-bold text-amber-900">您有 <span x-text="dueBills.length"></span> 筆管理費待繳，截止 民國<span x-text="ZN.roc(dueBills[0] && dueBills[0].due)"></span></p>
+          </div>
+          <button type="button" class="btn btn-primary w-full" @click="payTab='due'; go('pay')">去繳費</button>
+        </div>
+
+        <!-- 快捷 4 格 -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button type="button" class="zn-tile !p-4 !gap-2" @click="go('assets')">
+            <span class="zn-tile-icon"><i data-lucide="map-pin" class="w-7 h-7"></i></span>
+            <span class="zn-tile-title !text-lg">我的位置</span>
+          </button>
+          <button type="button" class="zn-tile !p-4 !gap-2" @click="go('cert')">
+            <span class="zn-tile-icon"><i data-lucide="qr-code" class="w-7 h-7"></i></span>
+            <span class="zn-tile-title !text-lg">數位存放證</span>
+          </button>
+          <button type="button" class="zn-tile !p-4 !gap-2" @click="payTab='due'; go('pay')">
+            <span class="zn-tile-icon"><i data-lucide="wallet" class="w-7 h-7"></i></span>
+            <span class="zn-tile-title !text-lg">繳費與回報</span>
+          </button>
+          <a class="zn-tile !p-4 !gap-2" href="../ceremony/index.html">
+            <span class="zn-tile-icon !bg-[#fbf5e9] !text-[#b8893b]"><i data-lucide="flower-2" class="w-7 h-7"></i></span>
+            <span class="zn-tile-title !text-lg">法會報名</span>
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        <!-- 近期法會 -->
+        <div x-show="nextCeremony">
+          <h2 class="zn-section-title mb-3">近期法會</h2>
+          <div class="zn-card zn-card-pad space-y-2" style="border-color:#ecd9b0;background:#fffdf8">
+            <div class="flex items-center justify-between gap-2">
+              <b class="text-xl" x-text="nextCeremony && nextCeremony.name"></b>
+              <span :class="ZN.badge('報名中')">報名中</span>
+            </div>
+            <p>日期：民國 <span x-text="nextCeremony && ZN.roc(nextCeremony.date)"></span>（<span x-text="nextCeremony && ZN.roc(nextCeremony.date2)"></span> 圓滿）</p>
+            <p>地點：<span x-text="nextCeremony && nextCeremony.place"></span></p>
+            <p class="zn-hint">報名截止：民國 <span x-text="nextCeremony && ZN.roc(nextCeremony.deadline)"></span></p>
+            <a class="btn btn-primary w-full mt-2" href="../ceremony/index.html">我要報名</a>
+          </div>
+        </div>
+
+        <!-- 最近申請進度 -->
+        <div>
+          <h2 class="zn-section-title mb-3">最近申請進度</h2>
+          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 items-start" x-show="apps.length">
+            <template x-for="a in apps" :key="a.no">
+              <div class="zn-card zn-card-pad space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <b class="text-lg" x-text="a.items.join('、')"></b>
+                  <span :class="ZN.badge(a.status)" x-text="a.status"></span>
+                </div>
+                <p class="zn-hint">申請日 民國 <span x-text="ZN.roc(a.date)"></span>　單號 <span x-text="a.no"></span></p>
+                <p class="zn-hint">權狀：<span x-text="a.certs.join('、')"></span></p>
+                <p class="text-base text-[#2f7fae] font-semibold" x-show="a.sign==='未簽收'">新權狀已備妥，請攜帶證件到服務處領取。</p>
+                <p class="text-base text-slate-600" x-show="a.status==='待會計審核'">服務處審核中，完成後會通知您。</p>
+              </div>
+            </template>
+          </div>
+          <div class="zn-card zn-card-pad text-center text-slate-500" x-show="!apps.length">目前沒有申請紀錄</div>
+        </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 5：我的位置（資產總覽） ===== -->
+    <template x-if="screen==='assets'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          <template x-for="f in ['全部','塔位','蓮位','禮儀']" :key="f">
+            <button type="button" class="shrink-0 h-12 px-5 rounded-full border-2 font-bold text-base"
+              :class="assetFilter===f ? 'bg-[#61b0db] border-[#61b0db] text-white' : 'bg-white border-slate-200 text-slate-600'"
+              @click="assetFilter=f">
+              <span x-text="f"></span> <span class="opacity-80" x-text="countOf(f)"></span>
+            </button>
+          </template>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <template x-for="a in shownAssets" :key="a.certNo">
+          <button type="button" class="zn-card zn-card-pad w-full text-left space-y-3" @click="openAsset(a.certNo,'assets')">
+            <div class="flex items-center justify-between gap-2">
+              <span :class="typeBadge(a.type)" x-text="a.type"></span>
+              <span :class="usageBadge(a.usage)" x-text="a.usage"></span>
+            </div>
+            <h3 class="text-xl font-bold" x-text="a.spec"></h3>
+            <div class="text-base text-slate-500">權狀／契約號碼 <b class="text-slate-800 font-mono" x-text="a.certNo"></b></div>
+            <div class="rounded-xl bg-sky-50 p-3" x-show="a.pos">
+              <p class="text-sm text-slate-500">位置</p>
+              <p class="text-xl font-bold text-[#1f5f86]" x-text="ZN.posText(a.pos)"></p>
+              <p class="text-xs text-slate-400">代碼 <span x-text="a.pos"></span></p>
+            </div>
+            <div class="rounded-xl bg-[#fbf5e9] p-3 text-base" x-show="!a.pos">禮儀契約，沒有固定位置。執行人：<b x-text="a.executor || '-'"></b></div>
+            <div x-show="a.deceased.length">
+              <p class="text-sm text-slate-500">往生者</p>
+              <p class="text-lg font-semibold" x-text="a.deceased.map(d => d.title + ' ' + d.name).join('、')"></p>
+            </div>
+            <div class="flex items-center justify-between text-base">
+              <span class="text-slate-500" x-show="a.feeExpire">管理費到期 民國<b class="text-slate-800" x-text="ZN.roc(a.feeExpire)"></b></span>
+              <span class="text-slate-500" x-show="!a.feeExpire">管理費：無</span>
+              <span class="inline-flex items-center text-[#2f7fae] font-bold">查看 <i data-lucide="chevron-right" class="w-5 h-5"></i></span>
+            </div>
+          </button>
+        </template>
+        </div>
+
+        <div class="zn-card zn-card-pad text-center text-slate-500 space-y-2" x-show="!shownAssets.length">
+          <div class="mx-auto text-slate-300 inline-flex"><i data-lucide="inbox" class="w-14 h-14"></i></div>
+          <p>這個分類目前沒有資產</p>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 5b：資產詳情（唯讀） ===== -->
+    <template x-if="screen==='assetDetail'">
+      <section class="zn-fade px-4 pt-5 space-y-4" x-show="d">
+        <template x-if="d">
+          <div class="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+            <div class="zn-card zn-card-pad space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <span :class="typeBadge(d.type)" x-text="d.type"></span>
+                <span :class="usageBadge(d.usage)" x-text="d.usage"></span>
+              </div>
+              <h2 class="text-2xl font-bold" x-text="d.spec"></h2>
+              <div class="rounded-xl bg-sky-50 p-3" x-show="d.pos">
+                <p class="text-sm text-slate-500">位置</p>
+                <p class="text-2xl font-bold text-[#1f5f86]" x-text="ZN.posText(d.pos)"></p>
+                <p class="text-sm text-slate-400">代碼 <span x-text="d.pos"></span></p>
+              </div>
+              <dl class="zn-kv">
+                <dt>權狀／契約</dt><dd class="font-mono" x-text="d.certNo"></dd>
+                <dt>持有人</dt><dd x-text="cust.name"></dd>
+                <dt>持有型態</dt><dd x-text="d.ownership"></dd>
+                <dt>使用狀態</dt><dd x-text="d.usage"></dd>
+                <dt x-show="d.executor">執行人</dt><dd x-show="d.executor" x-text="d.executor"></dd>
+              </dl>
+            </div>
+
+            <div>
+              <h3 class="zn-section-title mb-3">往生者</h3>
+              <div class="space-y-3" x-show="d.deceased.length">
+                <template x-for="p in d.deceased" :key="p.uid">
+                  <div class="zn-card zn-card-pad space-y-2">
+                    <p class="text-xl font-bold" x-text="p.title + ' ' + p.name"></p>
+                    <dl class="zn-kv">
+                      <dt>關係</dt><dd x-text="p.relation"></dd>
+                      <dt>出生</dt><dd x-text="p.birth ? '民國 ' + ZN.roc(p.birth) : '-'"></dd>
+                      <dt>往生</dt><dd x-text="p.death ? '民國 ' + ZN.roc(p.death) : '-'"></dd>
+                      <dt x-text="d.type==='蓮位' ? '安奉日期' : '晉塔日期'"></dt><dd x-text="'民國 ' + ZN.roc(p.enshrine)"></dd>
+                      <dt>宗教</dt><dd x-text="p.religion"></dd>
+                    </dl>
+                  </div>
+                </template>
+              </div>
+              <div class="zn-card zn-card-pad text-center text-slate-500" x-show="!d.deceased.length">目前尚無安奉的往生者</div>
+            </div>
+
+            <div x-show="d.type!=='禮儀'">
+              <h3 class="zn-section-title mb-3">管理費資訊</h3>
+              <div class="zn-card zn-card-pad space-y-3">
+                <dl class="zn-kv">
+                  <dt>合約別</dt><dd x-text="d.contract"></dd>
+                  <dt>年限</dt><dd x-text="d.feeYears"></dd>
+                  <dt>到期日</dt><dd x-text="'民國 ' + ZN.roc(d.feeExpire)"></dd>
+                </dl>
+                <div class="zn-note zn-note-warn" x-show="billOf(d.certNo)">
+                  <span class="shrink-0 inline-flex"><i data-lucide="bell" class="w-6 h-6"></i></span>
+                  <span>這筆有管理費待繳，截止 民國<span x-text="billOf(d.certNo) && ZN.roc(billOf(d.certNo).due)"></span>。</span>
+                </div>
+                <button type="button" class="btn btn-primary w-full" x-show="billOf(d.certNo)" @click="payTab='due'; go('pay')">去繳費</button>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <button type="button" class="btn btn-lg btn-primary w-full" x-show="d.usage==='已使用' && d.type!=='禮儀'" @click="selectCert(d.certNo); go('cert')">
+                <span class="inline-flex"><i data-lucide="qr-code" class="w-6 h-6"></i></span> 顯示存放證
+              </button>
+              <button type="button" class="btn btn-lg btn-soft w-full" @click="sheet='change'">
+                <span class="inline-flex"><i data-lucide="file-pen-line" class="w-6 h-6"></i></span> 我要辦理異動
+              </button>
+            </div>
+          </div>
+        </template>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 6：數位存放證 ===== -->
+    <template x-if="screen==='cert'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <template x-if="certAssets.length">
+          <div class="space-y-4">
+            <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" x-show="certAssets.length>1">
+              <template x-for="a in certAssets" :key="a.certNo">
+                <button type="button" class="shrink-0 min-h-[3rem] px-4 py-1 rounded-2xl border-2 text-left"
+                  :class="curCert.certNo===a.certNo ? 'bg-[#61b0db] border-[#61b0db] text-white' : 'bg-white border-slate-200 text-slate-600'"
+                  @click="selectCert(a.certNo)">
+                  <b class="block" x-text="a.type + '・' + a.spec"></b>
+                  <span class="text-xs opacity-80 font-mono" x-text="a.certNo"></span>
+                </button>
+              </template>
+            </div>
+
+            <!-- 證書卡 -->
+            <div class="rounded-3xl bg-white overflow-hidden shadow-lg" style="border:2px solid #ecd9b0">
+              <div class="px-5 py-4 flex items-center gap-3" style="background:linear-gradient(135deg,#fbf5e9,#f3e6c6)">
+                <div class="zn-brand-mark !w-11 !h-11 !text-xl">慈</div>
+                <div class="flex-1">
+                  <p class="font-extrabold text-xl tracking-widest" style="color:#8a6420">慈恩園 存放證</p>
+                  <p class="text-xs font-mono" style="color:#8a6420" x-text="curCert.certNo"></p>
+                </div>
+                <span :class="ZN.badge('有效')">有效</span>
+              </div>
+              <div class="p-5 space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-x-10 lg:gap-y-6 lg:p-8 lg:items-center">
+                <div class="text-center lg:row-span-2">
+                  <button type="button" class="inline-block p-2 border border-slate-200 rounded-2xl bg-white" @click="openAsset(curCert.certNo,'cert')" aria-label="查看資產詳情">
+                    <img :src="qrSrc" alt="存放證 QR 碼" class="w-64 max-w-full aspect-square">
+                  </button>
+                  <p class="mt-1"><button type="button" class="underline font-bold text-[#2f7fae] min-h-[48px]" @click="openAsset(curCert.certNo,'cert')">點擊 QR 查看資產詳情</button></p>
+                </div>
+
+                <div>
+                  <div class="flex items-center justify-between text-base">
+                    <span class="font-semibold">QR 碼每 60 秒更新</span>
+                    <span class="text-slate-500">還有 <b x-text="left"></b> 秒</span>
+                  </div>
+                  <progress class="progress progress-primary w-full h-3 mt-1" :value="left" max="60"></progress>
+                  <button type="button" class="btn btn-soft w-full mt-3" @click="refreshQR(true)">
+                    <span class="inline-flex"><i data-lucide="refresh-cw" class="w-5 h-5"></i></span> 立即更新
+                  </button>
+                </div>
+
+                <dl class="zn-kv border-t border-slate-100 pt-4">
+                  <dt>持有人</dt><dd x-text="ZN.maskName(cust.name)"></dd>
+                  <dt>往生者</dt><dd x-text="curCert.deceased.map(d => d.title + ' ' + d.name).join('、')"></dd>
+                  <dt>位置</dt><dd><span x-text="ZN.posText(curCert.pos)"></span><br><span class="text-xs text-slate-400 font-normal" x-text="curCert.pos"></span></dd>
+                  <dt>種類</dt><dd x-text="curCert.type + '・' + curCert.spec"></dd>
+                </dl>
+              </div>
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-2">
+            <div class="zn-note zn-note-info">
+              <span class="shrink-0 inline-flex"><i data-lucide="scan-line" class="w-6 h-6"></i></span>
+              <span>開櫃時請出示此畫面給管理人員掃描。</span>
+            </div>
+            <div class="zn-note zn-note-warn">
+              <span class="shrink-0 inline-flex"><i data-lucide="sun" class="w-6 h-6"></i></span>
+              <span>請把手機螢幕調亮，掃描會更順利。</span>
+            </div>
+            </div>
+          </div>
+        </template>
+        <div class="zn-card zn-card-pad text-center text-slate-500 space-y-2" x-show="!certAssets.length">
+          <div class="mx-auto text-slate-300 inline-flex"><i data-lucide="qr-code" class="w-14 h-14"></i></div>
+          <p class="font-bold text-slate-700">目前沒有可出示的存放證</p>
+          <p>已晉塔（塔位）或已安奉（蓮位）後，才會顯示存放證。</p>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 7：繳費與回報 ===== -->
+    <template x-if="screen==='pay'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <div class="grid grid-cols-2 gap-2 p-1 bg-white rounded-2xl border border-slate-200 lg:max-w-md">
+          <button type="button" class="h-12 rounded-xl font-bold" :class="payTab==='due' ? 'bg-[#61b0db] text-white' : 'text-slate-600'" @click="payTab='due'">待繳費 <span x-text="dueBills.length"></span></button>
+          <button type="button" class="h-12 rounded-xl font-bold" :class="payTab==='history' ? 'bg-[#61b0db] text-white' : 'text-slate-600'" @click="payTab='history'">繳費紀錄</button>
+        </div>
+
+        <!-- 待繳費 -->
+        <div x-show="payTab==='due'" class="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
+          <div class="space-y-4 min-w-0">
+          <template x-for="b in dueBills" :key="b.id">
+            <div class="zn-card zn-card-pad space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <b class="text-lg" x-text="b.item"></b>
+                <span :class="ZN.badge(b.status)" x-text="b.status"></span>
+              </div>
+              <p class="text-base text-slate-500"><span x-text="(ZN.assetByCert(b.certNo)||{}).spec"></span>　權狀 <span class="font-mono" x-text="b.certNo"></span></p>
+              <p class="text-base">期別：<b x-text="b.period"></b></p>
+              <p class="text-4xl font-extrabold text-[#1f5f86]" x-text="ZN.money(b.amount)"></p>
+              <p class="text-base">截止日：民國 <b x-text="ZN.roc(b.due)"></b></p>
+              <button type="button" class="btn btn-lg btn-primary w-full" @click="openReport(b)">我已轉帳，回報繳費</button>
+            </div>
+          </template>
+          <div class="zn-card zn-card-pad text-center text-slate-500 space-y-2" x-show="!dueBills.length">
+            <div class="mx-auto text-green-500 inline-flex"><i data-lucide="check-circle-2" class="w-14 h-14"></i></div>
+            <p class="font-bold text-slate-700">目前沒有待繳費項目</p>
+          </div>
+          </div>
+
+          <!-- 轉帳資訊 -->
+          <div class="zn-card zn-card-pad space-y-3" x-show="dueBills.length">
+            <h3 class="zn-section-title">轉帳資訊</h3>
+            <div class="flex items-center justify-between gap-2 py-1 border-b border-slate-100">
+              <div><p class="text-sm text-slate-500">銀行</p><p class="font-bold" x-text="ZN.BANK.name + '（' + ZN.BANK.code + '）'"></p></div>
+              <button type="button" class="btn btn-soft" @click="copy(ZN.BANK.code + ' ' + ZN.BANK.name,'銀行')">複製</button>
+            </div>
+            <div class="flex items-center justify-between gap-2 py-1 border-b border-slate-100">
+              <div><p class="text-sm text-slate-500">帳號</p><p class="font-bold font-mono text-xl" x-text="ZN.BANK.account"></p></div>
+              <button type="button" class="btn btn-soft" @click="copy(ZN.BANK.account,'帳號')">複製</button>
+            </div>
+            <div class="flex items-center justify-between gap-2 py-1">
+              <div><p class="text-sm text-slate-500">戶名</p><p class="font-bold" x-text="ZN.BANK.holder"></p></div>
+              <button type="button" class="btn btn-soft" @click="copy(ZN.BANK.holder,'戶名')">複製</button>
+            </div>
+            <p class="zn-hint">轉帳後，請回到這裡按「我已轉帳，回報繳費」。</p>
+          </div>
+        </div>
+
+        <!-- 繳費紀錄 -->
+        <div x-show="payTab==='history'" class="grid gap-3 lg:grid-cols-2 items-start">
+          <template x-for="b in historyBills" :key="b.id">
+            <div class="zn-card zn-card-pad space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <b class="text-lg" x-text="b.item + '・' + b.period"></b>
+                <span :class="ZN.badge(b.status)" x-text="b.status"></span>
+              </div>
+              <p class="text-2xl font-extrabold" x-text="ZN.money(b.amount)"></p>
+              <p class="text-base text-slate-500">權狀 <span class="font-mono" x-text="b.certNo"></span></p>
+              <p class="text-base" x-show="b.status==='已繳費'">繳費日期：民國 <b x-text="ZN.roc(b.paidAt)"></b></p>
+              <template x-if="b.status==='對帳中' && b.report">
+                <div class="zn-note zn-note-info !p-3 text-base">
+                  <span>已回報：末五碼 <b x-text="b.report.last5"></b>，轉帳日 民國<span x-text="ZN.roc(b.report.date)"></span>。會計確認入帳後將以 LINE／簡訊通知您。</span>
+                </div>
+              </template>
+            </div>
+          </template>
+          <div class="zn-card zn-card-pad text-center text-slate-500 lg:col-span-2" x-show="!historyBills.length">還沒有繳費紀錄</div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 7b：回報繳費表單 ===== -->
+    <template x-if="screen==='payReport'">
+      <section class="narrow zn-fade px-4 pt-5 space-y-4">
+        <!-- 送出後 -->
+        <div x-show="reportDone" class="space-y-4">
+          <div class="zn-card zn-card-pad text-center space-y-3">
+            <div class="w-20 h-20 mx-auto rounded-full bg-purple-100 text-purple-700 grid place-items-center"><i data-lucide="hourglass" class="w-10 h-10"></i></div>
+            <h2 class="text-2xl font-bold">已收到您的回報</h2>
+            <p>目前狀態：<span :class="ZN.badge('對帳中')">對帳中</span></p>
+            <p class="text-lg">會計確認入帳後，將以 LINE／簡訊通知您。</p>
+          </div>
+          <button type="button" class="btn btn-lg btn-primary w-full" @click="payTab='history'; go('pay')">查看繳費紀錄</button>
+        </div>
+
+        <!-- 表單 -->
+        <div x-show="!reportDone && curBill" class="space-y-4">
+          <div class="zn-card zn-card-pad space-y-1">
+            <b class="text-lg" x-text="curBill && (curBill.item + '・' + curBill.period)"></b>
+            <p class="text-base text-slate-500">權狀 <span class="font-mono" x-text="curBill && curBill.certNo"></span></p>
+            <p class="text-3xl font-extrabold text-[#1f5f86]" x-text="curBill && ZN.money(curBill.amount)"></p>
+          </div>
+          <div class="zn-card zn-card-pad space-y-5">
+            <div>
+              <label class="zn-label"><span class="req">*</span>繳款帳號末五碼</label>
+              <input class="input input-lg w-full tracking-widest font-mono" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="例如 12345" x-model="f.last5" @input="f.last5=$event.target.value.replace(/\D/g,'').slice(0,5)">
+              <p class="zn-hint">您轉出的那個銀行帳號，最後 5 個數字。</p>
+              <p class="zn-error-text" x-show="f.tried && fErr.last5" x-text="fErr.last5"></p>
+            </div>
+            <div>
+              <label class="zn-label"><span class="req">*</span>繳款日期</label>
+              <input class="input input-lg w-full" type="date" x-model="f.date" :max="isoToday()">
+              <p class="zn-hint" x-show="f.date">民國 <span x-text="ZN.roc(f.date)"></span></p>
+              <p class="zn-error-text" x-show="f.tried && fErr.date" x-text="fErr.date"></p>
+            </div>
+            <div>
+              <label class="zn-label"><span class="req">*</span>繳款金額（元）</label>
+              <input class="input input-lg w-full" inputmode="numeric" x-model="f.amount" @input="f.amount=$event.target.value.replace(/\D/g,'')">
+              <p class="zn-error-text" x-show="f.tried && fErr.amount" x-text="fErr.amount"></p>
+              <p class="zn-hint text-amber-700" x-show="curBill && f.amount && Number(f.amount)!==curBill.amount">金額與應繳不同，會計會人工核對。</p>
+            </div>
+            <div>
+              <label class="zn-label">備註（選填）</label>
+              <textarea class="textarea w-full" rows="2" x-model="f.note" placeholder="例如：由家人代為轉帳"></textarea>
+            </div>
+            <button type="button" class="btn btn-xl btn-primary w-full" @click="submitReport()">送出回報</button>
+          </div>
+        </div>
+      </section>
+    </template>
+
+    <!-- ===== 畫面 8：我的（個人資料） ===== -->
+    <template x-if="screen==='me'">
+      <section class="zn-fade px-4 pt-5 space-y-4">
+        <!-- 已啟用 -->
+        <template x-if="cust">
+          <div class="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
+            <div class="zn-card zn-card-pad space-y-3">
+              <h3 class="zn-section-title">基本資料</h3>
+              <dl class="space-y-3">
+                <div class="flex items-center justify-between"><dt class="text-slate-500">姓名</dt><dd class="font-bold flex items-center gap-2"><span x-text="cust.name"></span><span class="text-slate-400 inline-flex"><i data-lucide="lock" class="w-4 h-4"></i></span></dd></div>
+                <div class="flex items-center justify-between"><dt class="text-slate-500">身分證</dt><dd class="font-bold flex items-center gap-2"><span x-text="ZN.maskId(cust.idNo)"></span><span class="text-slate-400 inline-flex"><i data-lucide="lock" class="w-4 h-4"></i></span></dd></div>
+                <div class="flex items-center justify-between"><dt class="text-slate-500">客戶編號</dt><dd class="font-bold flex items-center gap-2"><span x-text="cust.id"></span><span class="text-slate-400 inline-flex"><i data-lucide="lock" class="w-4 h-4"></i></span></dd></div>
+              </dl>
+              <div class="zn-note zn-note-info !p-3 text-base">如需修改姓名、身分證，請臨櫃辦理。</div>
+            </div>
+
+            <!-- 審核中 -->
+            <div class="zn-card zn-card-pad space-y-2" style="background:#fffbeb;border-color:#fde68a" x-show="pfPending">
+              <div class="flex items-center gap-2"><span class="text-amber-600 inline-flex"><i data-lucide="clock" class="w-6 h-6"></i></span><b class="text-lg text-amber-900">變更申請審核中（送後台人員確認）</b></div>
+              <template x-if="pfPending">
+                <dl class="zn-kv text-base">
+                  <dt>聯絡電話</dt><dd x-text="pfPending.phone"></dd>
+                  <dt>通訊地址</dt><dd x-text="pfPending.zip + ' ' + pfPending.addr"></dd>
+                  <dt>送出時間</dt><dd x-text="'民國 ' + ZN.roc(pfPending.at)"></dd>
+                </dl>
+              </template>
+              <button type="button" class="btn btn-ghost-gray w-full" @click="pfPending=null; toast('已撤回申請')">撤回申請</button>
+            </div>
+
+            <div class="zn-card zn-card-pad space-y-5" x-show="!pfPending">
+              <h3 class="zn-section-title">聯絡方式（可修改）</h3>
+              <div>
+                <label class="zn-label">聯絡電話</label>
+                <input class="input input-lg w-full" type="tel" inputmode="numeric" x-model="pf.phone">
+                <p class="zn-error-text" x-show="pf.tried && pfErr.phone" x-text="pfErr.phone"></p>
+              </div>
+              <div class="grid gap-3" style="grid-template-columns:6.5rem 1fr">
+                <div>
+                  <label class="zn-label">郵遞區號</label>
+                  <input class="input input-lg w-full" inputmode="numeric" maxlength="3" x-model="pf.zip">
+                </div>
+                <div>
+                  <label class="zn-label">通訊地址</label>
+                  <input class="input input-lg w-full" x-model="pf.addr">
+                </div>
+              </div>
+              <p class="zn-error-text" x-show="pf.tried && (pfErr.zip || pfErr.addr)" x-text="pfErr.zip || pfErr.addr"></p>
+              <p class="zn-hint">送出後會由後台人員確認，確認後才會更新。</p>
+              <button type="button" class="btn btn-lg btn-primary w-full" :disabled="!pfChanged" @click="submitProfile()">送出變更</button>
+            </div>
+
+            <div class="zn-card zn-card-pad space-y-3">
+              <h3 class="zn-section-title">通知方式</h3>
+              <p class="text-lg font-bold" x-text="cust.notify"></p>
+              <p class="zn-hint">繳費、辦理進度等訊息會用這個方式通知您。</p>
+            </div>
+
+            <div class="zn-card zn-card-pad space-y-3">
+              <h3 class="zn-section-title">登入方式</h3>
+              <div class="flex items-center justify-between"><span>手機 <span class="text-slate-500" x-text="ZN.maskPhone(cust.phone)"></span></span><span :class="ZN.badge('已繳費')">✓ 已設定</span></div>
+              <div class="flex items-center justify-between gap-2">
+                <span>LINE</span>
+                <span x-show="lineBound" :class="ZN.badge('已啟用')">已綁定</span>
+                <button type="button" class="btn btn-soft" x-show="!lineBound" @click="lineBound=true; toast('示範：LINE 已綁定')">綁定 LINE</button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 待綁定 -->
+        <template x-if="!cust">
+          <div class="zn-card zn-card-pad space-y-3">
+            <h3 class="zn-section-title">帳號資料</h3>
+            <dl class="zn-kv">
+              <dt>會員編號</dt><dd x-text="member.id"></dd>
+              <dt>登入方式</dt><dd x-text="member.via"></dd>
+              <dt>登入帳號</dt><dd x-text="member.login"></dd>
+              <dt>狀態</dt><dd><span :class="ZN.badge(member.status)" x-text="member.status"></span></dd>
+            </dl>
+            <div class="zn-note zn-note-info !p-3 text-base">完成臨櫃綁定後，才能查看姓名、地址等個人資料。</div>
+          </div>
+        </template>
+
+        <button type="button" class="btn btn-lg btn-danger w-full lg:max-w-sm" @click="askLogout()">
+          <span class="inline-flex"><i data-lucide="log-out" class="w-6 h-6"></i></span> 登出
+        </button>
+      </section>
+    </template>
+
+  </div>
+
+  <!-- 底部導覽 -->
+  <nav class="zn-tabbar lg:hidden" x-show="showTabbar">
+    <button type="button" :class="activeTab==='home' && 'is-on'" @click="tab('home')">
+      <span class="inline-flex"><i data-lucide="house" class="w-6 h-6"></i></span><span>首頁</span>
+    </button>
+    <button type="button" :class="activeTab==='assets' && 'is-on'" @click="tab('assets')">
+      <span class="relative inline-flex"><i data-lucide="map-pin" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>我的位置</span>
+    </button>
+    <button type="button" :class="activeTab==='cert' && 'is-on'" @click="tab('cert')">
+      <span class="relative inline-flex"><i data-lucide="qr-code" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>存放證</span>
+    </button>
+    <button type="button" :class="activeTab==='pay' && 'is-on'" @click="tab('pay')">
+      <span class="relative inline-flex"><i data-lucide="wallet" class="w-6 h-6"></i><span x-show="isPending" class="absolute -top-1 -right-2 bg-white rounded-full text-amber-600 inline-flex"><i data-lucide="lock" class="w-3.5 h-3.5"></i></span></span><span>繳費</span>
+    </button>
+    <button type="button" :class="activeTab==='me' && 'is-on'" @click="tab('me')">
+      <span class="inline-flex"><i data-lucide="user" class="w-6 h-6"></i></span><span>我的</span>
+    </button>
+  </nav>
+
+  <!-- 底部彈出：異動說明／個資告知 -->
+  <div class="modal modal-bottom sm:modal-middle" :class="sheet && 'modal-open'" style="z-index:70">
+    <div class="modal-box max-h-[85vh]">
+      <template x-if="sheet==='change' && d">
+        <div class="space-y-4">
+          <h3 class="text-2xl font-bold">我要辦理異動</h3>
+          <div class="zn-note zn-note-warn">
+            <span class="shrink-0 inline-flex"><i data-lucide="building-2" class="w-6 h-6"></i></span>
+            <span>異動需<b>臨櫃辦理</b>，請攜帶<b>印鑑</b>與<b>身分證件</b>。本頁僅供參考，無法線上送出。</span>
+          </div>
+          <div class="zn-note zn-note-info text-base">
+            <div>
+              <p><b x-text="ZN.SITE.service"></b></p>
+              <p x-text="ZN.SITE.hours"></p>
+              <p x-text="ZN.SITE.addr"></p>
+              <p>電話：<span x-text="ZN.SITE.tel"></span></p>
+            </div>
+          </div>
+          <h4 class="zn-section-title">常見辦理項目（<span x-text="d.type"></span>）</h4>
+          <ul class="divide-y divide-slate-100">
+            <template x-for="it in ZN.itemsFor(d.type)" :key="it.code">
+              <li class="py-3">
+                <p class="font-bold text-lg" x-text="it.name"></p>
+                <p class="text-base text-slate-600" x-text="it.desc"></p>
+                <p class="text-sm text-[#8a6420]">規費：<span x-text="it.feeRule"></span></p>
+                <p class="text-sm text-slate-500" x-show="it.needUsed">需已晉塔／安奉</p>
+              </li>
+            </template>
+          </ul>
+        </div>
+      </template>
+      <template x-if="sheet==='privacy'">
+        <div class="space-y-3">
+          <h3 class="text-2xl font-bold">個人資料蒐集與使用告知</h3>
+          <p>慈恩園蒐集您的姓名與聯絡方式，僅用於會員身分確認、管理費與辦理進度通知，以及服務聯繫。</p>
+          <p>您的資料不會提供與無關的第三方；您可隨時至服務處查詢、更正或請求刪除。</p>
+          <p class="zn-hint">（雛形示意文字，正式內容以業主提供為準）</p>
+        </div>
+      </template>
+      <div class="modal-action">
+        <button type="button" class="btn btn-lg btn-primary w-full" @click="sheet=null">我知道了</button>
+      </div>
+    </div>
+    <div class="modal-backdrop" @click="sheet=null"></div>
+  </div>
+
+  <!-- 確認對話框 -->
+  <div class="modal" :class="confirmBox.open && 'modal-open'" style="z-index:80">
+    <div class="modal-box">
+      <h3 class="text-2xl font-bold" x-text="confirmBox.title"></h3>
+      <p class="py-3 text-lg" x-text="confirmBox.msg"></p>
+      <div class="modal-action grid grid-cols-2 gap-3">
+        <button type="button" class="btn btn-lg btn-ghost-gray" @click="confirmBox.open=false">取消</button>
+        <button type="button" class="btn btn-lg btn-primary" @click="confirmBox.open=false; confirmBox.fn && confirmBox.fn()" x-text="confirmBox.ok"></button>
+      </div>
+    </div>
+    <div class="modal-backdrop" @click="confirmBox.open=false"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="fixed top-16 inset-x-0 z-[100] flex flex-col items-center gap-2 px-4 pointer-events-none">
+    <template x-for="t in $store.toast.items" :key="t.id">
+      <div class="px-5 py-3 rounded-xl text-white shadow-lg text-base max-w-sm" :class="t.type==='error' ? 'bg-red-600' : 'bg-slate-800'" x-text="t.msg"></div>
+    </template>
+  </div>
+
+  <div class="zn-proto-flag" style="bottom:5rem">雛形 Prototype · 會員專區</div>
+</div>
+
+<script>
+/* 會員專區 Alpine 根元件：view（畫面）＋ member（登入會員） */
+function memberApp() {
+  const pad = n => String(n).padStart(2, '0');
+  return {
+    /* ---------- 狀態 ---------- */
+    view: 'welcome',          // welcome login register home assets assetDetail cert pay payReport me
+    member: null,             // null = 未登入
+    demo: 'guest', demoOpen: false,
+    titles: { welcome: '', login: '登入', register: '註冊會員', home: '首頁', assets: '我的位置', assetDetail: '資產詳情', cert: '數位存放證', pay: '繳費與回報', payReport: '回報繳費', me: '我的' },
+    sheet: null,
+    confirmBox: { open: false, title: '', msg: '', ok: '確定', fn: null },
+    // 登入
+    loginMode: 'phone', loginId: '0912345678', loginPwd: 'demo1234', showPwd: false, loginErr: '',
+    // 註冊
+    reg: { step: 1, method: '', name: '', contact: '', pwd: '', pwd2: '', agree: false, tried: false },
+    regMember: null,
+    // 資產
+    assetFilter: '全部', detail: null, detailFrom: 'assets',
+    // 存放證
+    selCert: null, qrSrc: '', qrStamp: 0, left: 60,
+    // 繳費
+    bills: [], payTab: 'due', billSel: null, reportDone: false,
+    f: { last5: '', date: '', amount: '', note: '', tried: false },
+    // 個人資料
+    pf: { phone: '', zip: '', addr: '', tried: false }, pfPending: null, lineBound: false,
+
+    /* ---------- 初始化 ---------- */
+    init() {
+      setInterval(() => {
+        if (this.view === 'cert' && this.certAssets.length) { this.left--; if (this.left <= 0) this.refreshQR(); }
+      }, 1000);
+      // 畫面變動後重畫 lucide 圖示（避免重複觸發：無 <i data-lucide> 時不改 DOM）
+      let sched = false;
+      new MutationObserver(() => {
+        if (sched) return; sched = true;
+        requestAnimationFrame(() => { sched = false; if (window.lucide) lucide.createIcons(); });
+      }).observe(this.$root, { childList: true, subtree: true });
+      this.$nextTick(() => window.lucide && lucide.createIcons());
+    },
+
+    /* ---------- 衍生資料 ---------- */
+    get cust() { return this.member && this.member.customer ? ZN.customerOf(this.member.customer) : null; },
+    get isPending() { return !!this.member && this.member.status === '待綁定'; },
+    get isActive() { return !!this.member && this.member.status === '已啟用'; },
+    get isSub() { return ['login', 'register', 'assetDetail', 'payReport'].includes(this.view); },
+    get showTabbar() { return !!this.member && !['welcome', 'login', 'register'].includes(this.view); },
+    get activeTab() {
+      if (this.view === 'assetDetail') return this.detailFrom === 'cert' ? 'cert' : 'assets';
+      if (this.view === 'payReport') return 'pay';
+      return this.view;
+    },
+    // 實際顯示的畫面（待綁定時，資產／存放證／繳費上鎖）
+    get screen() {
+      if (!this.member && !['welcome', 'login', 'register'].includes(this.view)) return 'welcome';
+      if (this.isPending) {
+        if (this.view === 'home') return 'pendingHome';
+        if (['assets', 'assetDetail', 'cert', 'pay', 'payReport'].includes(this.view)) return 'locked';
+      }
+      return this.view;
+    },
+    get memberQR() { return this.member ? ZN.fakeQR(this.member.id) : ''; },
+    get assets() { return this.cust ? ZN.assetsOf(this.cust.id) : []; },
+    get shownAssets() { return this.assetFilter === '全部' ? this.assets : this.assets.filter(a => a.type === this.assetFilter); },
+    get d() { return this.detail && this.cust ? ZN.assetsOf(this.cust.id).find(a => a.certNo === this.detail) || null : null; },
+    get certAssets() { return this.assets.filter(a => (a.type === '塔位' || a.type === '蓮位') && a.usage === '已使用'); },
+    get curCert() { return this.certAssets.find(a => a.certNo === this.selCert) || this.certAssets[0]; },
+    get dueBills() { return this.bills.filter(b => b.status === '待繳費'); },
+    get historyBills() { return this.bills.filter(b => b.status !== '待繳費'); },
+    get curBill() { return this.bills.find(b => b.id === this.billSel); },
+    get apps() { return this.cust ? ZN.APPLICATIONS.filter(a => a.owner === this.cust.id).sort((a, b) => b.date.localeCompare(a.date)) : []; },
+    get nextCeremony() { return ZN.CEREMONIES.filter(c => c.status === '報名中').sort((a, b) => a.date.localeCompare(b.date))[0]; },
+    get regErr() {
+      const r = this.reg, e = {};
+      if (!r.name.trim()) e.name = '請輸入姓名';
+      if (r.method === 'phone' && !/^09\d{8}$/.test(r.contact)) e.contact = '請輸入 10 碼手機號碼，例如 0912345678';
+      if (r.method === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.contact)) e.contact = '請輸入正確的 Email';
+      if (r.method !== 'line') {
+        if (r.pwd.length < 8) e.pwd = '密碼至少 8 個字';
+        if (r.pwd2 !== r.pwd || !r.pwd2) e.pwd2 = '兩次輸入的密碼不一樣';
+      }
+      if (!r.agree) e.agree = '請勾選同意後才能繼續';
+      return e;
+    },
+    get fErr() {
+      const f = this.f, e = {};
+      if (!/^\d{5}$/.test(f.last5)) e.last5 = '請輸入 5 個數字';
+      if (!f.date) e.date = '請選擇日期';
+      else if (f.date > this.isoToday()) e.date = '日期不能是未來';
+      if (!f.amount || Number(f.amount) <= 0) e.amount = '請輸入金額';
+      return e;
+    },
+    get pfErr() {
+      const p = this.pf, e = {};
+      if (!/^(09\d{8}|0\d{1,2}-?\d{6,8})$/.test(p.phone.trim())) e.phone = '請輸入正確的電話號碼';
+      if (!/^\d{3}(\d{2,3})?$/.test(p.zip.trim())) e.zip = '郵遞區號請輸入 3 碼數字';
+      if (!p.addr.trim()) e.addr = '請輸入通訊地址';
+      return e;
+    },
+    get pfChanged() { return this.cust && (this.pf.phone !== this.cust.phone || this.pf.zip !== this.cust.zip || this.pf.addr !== this.cust.addr); },
+
+    /* ---------- 工具 ---------- */
+    isoToday() { const t = new Date(); return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()); },
+    toast(m, t) { Alpine.store('toast').show(m, t); },
+    stepCls(n) { return this.reg.step === n ? 'is-active' : (this.reg.step > n ? 'is-done' : ''); },
+    typeBadge(t) { return 'zn-badge ' + ({ 塔位: 'zn-badge-blue', 蓮位: 'zn-badge-purple', 禮儀: 'zn-badge-gold' }[t] || 'zn-badge-gray'); },
+    usageBadge(u) { return 'zn-badge ' + ({ 已使用: 'zn-badge-green', 未使用: 'zn-badge-gray', 申請中: 'zn-badge-yellow', 遷出: 'zn-badge-red' }[u] || 'zn-badge-gray'); },
+    countOf(f) { return f === '全部' ? this.assets.length : this.assets.filter(a => a.type === f).length; },
+    billOf(certNo) { return this.dueBills.find(b => b.certNo === certNo); },
+    ask(title, msg, ok, fn) { this.confirmBox = { open: true, title, msg, ok, fn }; },
+    copy(text, label) {
+      const ok = () => this.toast('已複製' + label);
+      const fb = () => {
+        const t = document.createElement('textarea');
+        t.value = text; t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(t); ok();
+      };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fb); else fb();
+    },
+
+    /* ---------- 導覽 ---------- */
+    go(v) {
+      this.view = v; this.sheet = null;
+      if (v === 'cert') { if (!this.selCert && this.certAssets[0]) this.selCert = this.certAssets[0].certNo; this.refreshQR(); }
+      window.scrollTo(0, 0);
+    },
+    tab(v) {
+      if (this.isPending && v !== 'home' && v !== 'me') this.toast('需先完成臨櫃綁定才能使用', 'error');
+      this.go(v);
+    },
+    back() {
+      const m = { login: 'welcome', register: 'welcome', assetDetail: this.detailFrom || 'assets', payReport: 'pay' };
+      this.go(m[this.view] || 'home');
+    },
+
+    /* ---------- 雛形切換 ---------- */
+    setDemo(k) {
+      this.demo = k; this.demoOpen = false;
+      if (k === 'guest') { this.setMember(null); this.go('welcome'); }
+      else { this.setMember(ZN.MEMBERS[k === 'pending' ? 1 : 0]); this.go('home'); }
+    },
+    setMember(m) {
+      this.member = m ? { ...m } : null;
+      this.demo = !m ? 'guest' : (m.status === '待綁定' ? 'pending' : 'active');
+      const c = this.cust;
+      this.bills = c ? ZN.FEE_BILLS.filter(b => b.owner === c.id).map(b => ({ ...b })) : [];
+      this.pf = { phone: c ? c.phone : '', zip: c ? c.zip : '', addr: c ? c.addr : '', tried: false };
+      this.pfPending = null; this.lineBound = c ? !!c.lineBound : false;
+      this.selCert = null; this.detail = null; this.assetFilter = '全部'; this.payTab = 'due';
+    },
+
+    /* ---------- 登入 ---------- */
+    openLogin(mode) {
+      this.loginMode = mode; this.loginErr = ''; this.showPwd = false; this.loginPwd = 'demo1234';
+      this.loginId = mode === 'phone' ? '0912345678' : 'hsiuying.lin@example.com';
+      this.go('login');
+    },
+    loginLine() { this.setMember(ZN.MEMBERS[0]); this.toast('已用 LINE 登入'); this.go('home'); },
+    doLogin() {
+      const id = this.loginId.trim();
+      if (!id || !this.loginPwd) { this.loginErr = '請輸入帳號和密碼'; return; }
+      if (this.loginMode === 'phone' && !/^09\d{8}$/.test(id)) { this.loginErr = '手機號碼要 10 碼，例如 0912345678'; return; }
+      if (this.loginMode === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id)) { this.loginErr = '請輸入正確的 Email'; return; }
+      const m = ZN.MEMBERS.find(x => x.login === id) ||
+        { id: 'M00099', login: id, via: this.loginMode === 'phone' ? '手機' : 'Email', customer: null, status: '待綁定' };
+      this.setMember(m); this.toast('登入成功'); this.go('home');
+    },
+    askLogout() {
+      this.ask('要登出嗎？', '登出後需要重新登入才能查看資料。', '登出', () => {
+        this.setMember(null); this.go('welcome'); this.toast('已登出');
+      });
+    },
+
+    /* ---------- 註冊（無 OTP） ---------- */
+    openRegister() {
+      this.reg = { step: 1, method: '', name: '', contact: '', pwd: '', pwd2: '', agree: false, tried: false };
+      this.go('register');
+    },
+    submitRegister() {
+      this.reg.tried = true;
+      if (Object.keys(this.regErr).length) { this.toast('請先修正標紅的欄位', 'error'); return; }
+      const r = this.reg;
+      this.regMember = {
+        id: 'M00' + (100 + Math.floor(Math.random() * 900)),
+        login: r.method === 'line' ? 'LINE 使用者' : r.contact,
+        via: { line: 'LINE', phone: '手機', email: 'Email' }[r.method],
+        customer: null, status: '待綁定', lineName: r.name.trim(),
+      };
+      this.reg.step = 3; window.scrollTo(0, 0);
+    },
+    finishRegister() { this.setMember(this.regMember); this.go('home'); },
+
+    /* ---------- 資產 ---------- */
+    openAsset(certNo, from) { this.detail = certNo; this.detailFrom = from; this.go('assetDetail'); },
+
+    /* ---------- 存放證 ---------- */
+    selectCert(no) { this.selCert = no; this.refreshQR(); },
+    refreshQR(manual) {
+      if (!this.curCert) return;
+      this.qrStamp = Date.now(); this.left = 60;
+      this.qrSrc = ZN.fakeQR(this.curCert.certNo + '|' + this.qrStamp, 25);
+      if (manual) this.toast('QR 碼已更新');
+    },
+
+    /* ---------- 繳費回報 ---------- */
+    openReport(b) {
+      this.billSel = b.id; this.reportDone = false;
+      this.f = { last5: '', date: this.isoToday(), amount: String(b.amount), note: '', tried: false };
+      this.go('payReport');
+    },
+    submitReport() {
+      this.f.tried = true;
+      if (Object.keys(this.fErr).length) { this.toast('請先修正標紅的欄位', 'error'); return; }
+      this.ask('確定送出回報？', '末五碼 ' + this.f.last5 + '，金額 ' + ZN.money(Number(this.f.amount)) + '。送出後無法修改。', '確定送出', () => {
+        const b = this.curBill;
+        b.status = '對帳中';
+        b.report = { last5: this.f.last5, date: this.f.date, amount: Number(this.f.amount), note: this.f.note };
+        this.reportDone = true; window.scrollTo(0, 0);
+      });
+    },
+
+    /* ---------- 個人資料 ---------- */
+    submitProfile() {
+      this.pf.tried = true;
+      if (Object.keys(this.pfErr).length) { this.toast('請先修正標紅的欄位', 'error'); return; }
+      this.pfPending = { phone: this.pf.phone.trim(), zip: this.pf.zip.trim(), addr: this.pf.addr.trim(), at: new Date() };
+      this.toast('已送出，等待後台人員確認');
+    },
+  };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>慈恩園 前台服務平台 · iPad</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="icon" href="../assets/img/favicon.ico">
+<script src="../assets/mock.js"></script><script src="../assets/common.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  /* 本頁專用樣式（不修改 assets/） */
+  .cust-mode { font-size: 22px; }
+  .cust-mode .zn-kv { font-size: 1.3rem; grid-template-columns: 9rem 1fr; }
+  .cust-mode .zn-section-title { font-size: 1.5rem; }
+  /* 掃描取景框 */
+  .vf { position: relative; height: 380px; border-radius: 1.25rem; overflow: hidden; background: radial-gradient(ellipse at center, #1e293b 0%, #0b1220 75%); }
+  .vf-frame { position: absolute; inset: 14% 18%; }
+  .vf-c { position: absolute; width: 44px; height: 44px; border: 5px solid #61b0db; }
+  .vf-c.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 14px; }
+  .vf-c.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 14px; }
+  .vf-c.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 14px; }
+  .vf-c.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 14px; }
+  .vf-line { position: absolute; left: 6%; right: 6%; height: 3px; background: linear-gradient(90deg, transparent, #61b0db, transparent); box-shadow: 0 0 18px 4px rgba(97,176,219,.7); animation: vfScan 2s ease-in-out infinite alternate; }
+  @keyframes vfScan { from { top: 4%; } to { top: 94%; } }
+  .photo-slot { border: 2px dashed #94a3b8; border-radius: 1rem; background: #f8fafc; }
+  .photo-slot.is-bad { border-color: #dc2626; background: #fef2f2; }
+  .modal-box { border-radius: 1.25rem; }
+  .input.is-bad, .select.is-bad, .textarea.is-bad { border-color: #dc2626; background: #fef2f2; }
+  /* 辦理順序鏈 */
+  .chain-node { position: relative; display: inline-flex; align-items: center; gap: .25rem; min-height: 3rem; padding: .25rem .5rem .25rem .375rem; border: 2px solid var(--zn-primary); border-radius: .875rem; background: #fff; }
+  .chain-node.is-auto { border-style: dashed; background: #f8fafc; }
+  .chain-seq { width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--zn-primary); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 1rem; flex-shrink: 0; }
+  /* 透明 select 疊在膠囊上：外觀精簡，點下去仍是原生下拉（iPad 友善） */
+  .chain-sel { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 1.0625rem; }
+  .chain-node:focus-within, .chain-add:focus-within { outline: 3px solid rgba(97,176,219,.35); outline-offset: 1px; }
+  .chain-x { position: relative; z-index: 1; width: 2.25rem; height: 2.25rem; border-radius: 999px; display: grid; place-items: center; color: #991b1b; background: #fee2e2; flex-shrink: 0; }
+  .chain-x:hover { background: #fecaca; }
+  .chain-add { position: relative; display: inline-flex; align-items: center; gap: .25rem; min-height: 3rem; padding: .25rem .75rem; border: 2px dashed #94a3b8; border-radius: .875rem; color: var(--zn-primary-deep); background: #fff; cursor: pointer; }
+  .chain-add:hover { border-color: var(--zn-primary); background: #f3fbff; }
+  .vf { max-height: 60vw; }
+  @media (max-width: 639px) {
+    .cust-mode { font-size: 19px; }
+    .cust-mode .zn-kv, .zn-kv { grid-template-columns: 6.5rem 1fr; }
+    .act-bar .btn-lg { min-height: 3.25rem; font-size: 1.0625rem; padding-inline: 1rem; }
+    .chain-node, .chain-add { min-height: 2.75rem; }
+  }
+  @media (min-width: 768px) { .vf { max-height: none; } }
+  @media print { .modal { display: none !important; } }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div x-data="app()" x-cloak class="min-h-screen flex flex-col" :class="{'cust-mode': view==='apply' && ap.custMode}">
+
+  <!-- ====================== 全域：Toast ====================== -->
+  <div class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 no-print w-[min(92vw,34rem)]">
+    <template x-for="t in $store.toast.items" :key="t.id">
+      <div class="alert shadow-lg zn-fade text-lg font-semibold" :class="t.type==='error' ? 'alert-error' : 'alert-success'">
+        <span x-text="t.msg"></span>
+      </div>
+    </template>
+  </div>
+  <div class="zn-proto-flag">雛形 Prototype · iPad 前台</div>
+
+  <!-- ====================== 全域：確認對話框 ====================== -->
+  <div class="modal no-print" :class="{'modal-open': cf.open}">
+    <div class="modal-box max-w-lg">
+      <h3 class="text-2xl font-bold" x-text="cf.title"></h3>
+      <p class="py-4 text-lg text-slate-600" x-text="cf.msg"></p>
+      <div class="modal-action">
+        <button class="btn btn-ghost-gray btn-lg" @click="cf.open=false">返回</button>
+        <button class="btn btn-lg" :class="cf.danger ? 'btn-danger' : 'btn-primary'" @click="cfOk()" x-text="cf.ok"></button>
+      </div>
+    </div>
+    <div class="modal-backdrop bg-black/40" @click="cf.open=false"></div>
+  </div>
+
+  <!-- 印鑑放大 -->
+  <div class="modal no-print" :class="{'modal-open': zoom.open}">
+    <div class="modal-box max-w-xl text-center">
+      <h3 class="text-xl font-bold" x-text="zoom.title"></h3>
+      <img :src="zoom.src" class="mx-auto my-4 w-full max-w-sm rounded-xl border" alt="放大圖">
+      <div class="modal-action justify-center"><button class="btn btn-primary btn-lg" @click="zoom.open=false">關閉</button></div>
+    </div>
+    <div class="modal-backdrop bg-black/40" @click="zoom.open=false"></div>
+  </div>
+
+  <!-- ====================== 共用頂欄 ====================== -->
+  <template x-if="view!=='login' && !(view==='apply' && ap.custMode)">
+    <header class="zn-topbar sticky top-0 z-30 no-print">
+      <div class="max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-6 h-16 sm:h-[4.5rem] flex items-center gap-2 sm:gap-4">
+        <div class="zn-brand shrink-0"><span class="zn-brand-mark">慈</span><span class="hidden sm:inline">慈恩園 前台</span></div>
+        <div class="flex-1 min-w-0 truncate text-center text-lg sm:text-xl font-bold text-slate-600" x-text="pageTitle()"></div>
+        <div class="hidden md:flex items-center gap-2 text-slate-600">
+          <i data-lucide="user-round" class="w-5 h-5"></i><span class="font-semibold" x-text="user"></span>
+        </div>
+        <button class="btn btn-soft max-sm:btn-square" x-show="view!=='menu'" @click="backToMenu()" title="返回主選單" aria-label="返回主選單"><i data-lucide="house" class="w-5 h-5"></i><span class="hidden sm:inline">返回主選單</span></button>
+        <button class="btn btn-ghost-gray max-sm:btn-square" title="登出" aria-label="登出" @click="askConfirm({title:'登出',msg:'確定要登出前台服務平台嗎？',ok:'登出',fn:()=>{resetAll();view='login'}})"><i data-lucide="log-out" class="w-5 h-5"></i><span class="hidden sm:inline">登出</span></button>
+      </div>
+    </header>
+  </template>
+
+  <!-- ====================== 1. 登入 ====================== -->
+  <template x-if="view==='login'">
+    <div class="zn-fade min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      <div class="relative hidden lg:block bg-slate-800">
+        <img src="../assets/img/hero.jpg" alt="慈恩園" class="absolute inset-0 w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/85 via-slate-900/30 to-transparent"></div>
+        <div class="absolute bottom-0 left-0 p-12 text-white">
+          <div class="zn-brand-mark !w-14 !h-14 !text-2xl mb-5">慈</div>
+          <h1 class="text-4xl font-extrabold tracking-widest">慈恩園 前台服務平台</h1>
+          <p class="mt-3 text-lg text-white/80">用心服務每一位家屬，讓辦理更簡單、更安心。</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-center p-4 sm:p-8">
+        <form class="zn-card zn-card-pad w-full max-w-md !p-6 sm:!p-8" @submit.prevent="login()">
+          <div class="zn-brand mb-6 lg:hidden"><span class="zn-brand-mark">慈</span><span>慈恩園 前台服務平台</span></div>
+          <h2 class="text-3xl font-extrabold">櫃檯人員登入</h2>
+          <p class="zn-hint mb-6">請輸入帳號密碼（雛形已預填示範帳號）</p>
+          <label class="zn-label"><span class="req">*</span>帳號</label>
+          <input class="input input-lg w-full mb-5" value="counter01" autocomplete="off">
+          <label class="zn-label"><span class="req">*</span>密碼</label>
+          <input type="password" class="input input-lg w-full mb-8" value="1234">
+          <button type="submit" class="btn btn-primary btn-xl w-full">登入</button>
+          <p class="zn-hint text-center mt-4">示範帳號：counter01　櫃檯 張美玲</p>
+        </form>
+      </div>
+    </div>
+  </template>
+
+  <!-- ====================== 2. 主選單 ====================== -->
+  <template x-if="view==='menu'">
+    <main class="zn-fade flex-1 flex flex-col max-w-6xl xl:max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div class="mb-6">
+        <h1 class="text-2xl sm:text-3xl font-extrabold"><span x-text="user"></span>，<span x-text="greeting()"></span></h1>
+        <p class="text-lg text-slate-500 mt-1"><span x-text="ZN.rocLong(ZN.today())"></span>　星期<span x-text="'日一二三四五六'[ZN.today().getDay()]"></span>　請選擇要辦理的業務</p>
+      </div>
+
+      <div class="zn-note zn-note-error mb-6" x-show="notice">
+        <i data-lucide="octagon-alert" class="w-6 h-6 shrink-0"></i>
+        <div class="flex-1 font-semibold" x-text="notice"></div>
+        <button class="btn btn-sm btn-ghost-gray" @click="notice=''">知道了</button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 flex-1 content-start">
+        <button class="zn-tile !p-5 sm:!p-8 md:min-h-[18rem]" @click="startApply()">
+          <span class="zn-tile-icon !w-14 !h-14 md:!w-20 md:!h-20"><i data-lucide="file-pen" class="w-10 h-10"></i></span>
+          <span class="zn-tile-title !text-2xl md:!text-3xl">異動申請</span>
+          <span class="zn-tile-desc !text-lg">處理客戶各項業務申辦：轉讓、繼承、補發、印鑑變更、換位等。</span>
+        </button>
+        <button class="zn-tile !p-5 sm:!p-8 md:min-h-[18rem]" @click="startReceive()">
+          <span class="flex w-full items-start justify-between">
+            <span class="zn-tile-icon !w-14 !h-14 md:!w-20 md:!h-20"><i data-lucide="package-check" class="w-10 h-10"></i></span>
+            <span class="zn-badge zn-badge-orange !text-base" x-show="unsignedCount()>0"><span x-text="unsignedCount()"></span> 件未簽收</span>
+            <span class="zn-badge zn-badge-green !text-base" x-show="unsignedCount()===0">全部已簽收</span>
+          </span>
+          <span class="zn-tile-title !text-2xl md:!text-3xl">資料領取與簽收</span>
+          <span class="zn-tile-desc !text-lg">新權狀等文件交付，由客戶或代理人核對後簽收。</span>
+        </button>
+        <button class="zn-tile !p-5 sm:!p-8 md:min-h-[18rem]" @click="startScan()">
+          <span class="zn-tile-icon !w-14 !h-14 md:!w-20 md:!h-20"><i data-lucide="scan-qr-code" class="w-10 h-10"></i></span>
+          <span class="zn-tile-title !text-2xl md:!text-3xl">存放證掃描</span>
+          <span class="zn-tile-desc !text-lg">開櫃身分驗證與到訪登記，掃描存放證 QR 即可確認。</span>
+        </button>
+      </div>
+
+      <!-- 頁尾：會員帳號綁定 -->
+      <footer class="mt-8 pt-5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-slate-400 text-base">慈恩園 前台服務平台 v0.1（雛形）</span>
+        <button class="btn btn-ghost text-primary underline underline-offset-4" style="color:var(--zn-primary-deep)" @click="startBind()">
+          <i data-lucide="link" class="w-5 h-5"></i>會員帳號綁定
+        </button>
+      </footer>
+    </main>
+  </template>
+
+  <!-- ====================== 3. 異動申請 wizard ====================== -->
+  <template x-if="view==='apply'">
+    <div class="flex-1 flex flex-col">
+
+      <!-- 步驟條 -->
+      <div class="max-w-6xl xl:max-w-7xl w-full mx-auto px-3 sm:px-6 pt-3 sm:pt-5 no-print" x-show="!ap.done && !ap.custMode">
+        <div class="zn-card px-4 py-3 md:hidden flex items-center gap-3">
+          <span class="zn-step-dot !border-[#61b0db] !bg-[#61b0db] text-white shrink-0" x-text="ap.step"></span>
+          <div class="flex-1 min-w-0"><div class="font-bold" x-text="steps[ap.step-1]"></div>
+            <div class="h-1.5 rounded-full bg-slate-200 mt-1 overflow-hidden"><div class="h-full bg-[#61b0db] transition-all" :style="'width:' + (ap.step/steps.length*100) + '%'"></div></div></div>
+          <span class="text-slate-500 text-base shrink-0" x-text="ap.step + ' / ' + steps.length"></span>
+        </div>
+        <div class="zn-card px-6 py-4 overflow-x-auto hidden md:block">
+          <div class="zn-steps">
+            <template x-for="(s,i) in steps" :key="i">
+              <div class="contents">
+                <div class="zn-step" :class="{'is-active': ap.step===i+1, 'is-done': ap.step>i+1}">
+                  <span class="zn-step-dot">
+                    <span x-show="ap.step<=i+1" x-text="i+1"></span>
+                    <span x-show="ap.step>i+1"><i data-lucide="check" class="w-5 h-5"></i></span>
+                  </span>
+                  <span x-text="s"></span>
+                </div>
+                <div class="zn-step-line" x-show="i<steps.length-1" :class="{'is-done': ap.step>i+1}"></div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <main class="flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-5">
+
+        <!-- ---------- ① 客戶識別 ---------- -->
+        <template x-if="ap.step===1 && !ap.done">
+          <section class="zn-fade space-y-5">
+            <div class="zn-card zn-card-pad">
+              <h2 class="zn-section-title mb-4">請先確認是哪一位客戶</h2>
+              <div class="join join-vertical sm:join-horizontal w-full mb-5">
+                <button class="join-item btn btn-lg flex-1" :class="ap.tab==='id' ? 'btn-primary' : 'btn-soft'" @click="setTab('id')"><i data-lucide="id-card" class="w-6 h-6"></i>身分證號</button>
+                <button class="join-item btn btn-lg flex-1" :class="ap.tab==='cert' ? 'btn-primary' : 'btn-soft'" @click="setTab('cert')"><i data-lucide="file-badge" class="w-6 h-6"></i>權狀號碼</button>
+                <button class="join-item btn btn-lg flex-1" :class="ap.tab==='seal' ? 'btn-primary' : 'btn-soft'" @click="setTab('seal')"><i data-lucide="stamp" class="w-6 h-6"></i>印鑑卡掃描</button>
+              </div>
+
+              <!-- 身分證 / 權狀 -->
+              <div x-show="ap.tab!=='seal'">
+                <label class="zn-label"><span class="req">*</span><span x-text="ap.tab==='id' ? '客戶身分證字號' : '權狀號碼'"></span></label>
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <input class="input input-lg flex-1 min-w-0 uppercase" x-model="ap.q" @keydown.enter="identify()" :placeholder="ap.tab==='id' ? '例：A123456789' : '例：VIP1140803'">
+                  <button class="btn btn-primary btn-lg" @click="identify()"><i data-lucide="search" class="w-6 h-6"></i>查詢客戶</button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 mt-3">
+                  <span class="zn-hint !mt-0">示範資料，點一下帶入：</span>
+                  <template x-for="h in hints" :key="h.v">
+                    <button class="btn btn-soft btn-sm !min-h-[2.5rem]" @click="fillHint(h.v)"><span x-text="h.v"></span><span class="font-normal opacity-70" x-text="'（'+h.t+'）'"></span></button>
+                  </template>
+                </div>
+                <div class="zn-note zn-note-error mt-4" x-show="ap.err"><i data-lucide="circle-alert" class="w-6 h-6 shrink-0"></i><div x-text="ap.err"></div></div>
+              </div>
+
+              <!-- 印鑑卡掃描 -->
+              <div x-show="ap.tab==='seal'">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 items-center">
+                  <div class="photo-slot p-4 text-center min-h-[15rem] flex flex-col items-center justify-center gap-3">
+                    <template x-if="!ap.sealPic">
+                      <div class="text-slate-500"><i data-lucide="camera" class="w-12 h-12 mx-auto mb-2"></i>請將客戶印鑑卡放入鏡頭範圍</div>
+                    </template>
+                    <template x-if="ap.sealPic"><img :src="ap.sealPic" class="rounded-xl max-h-52" alt="印鑑卡"></template>
+                    <button class="btn btn-primary btn-lg" :disabled="ap.busy" @click="scanSealCard()">
+                      <span class="loading loading-spinner" x-show="ap.busy"></span>
+                      <span x-text="ap.sealPic ? '重新拍攝' : '拍攝印鑑卡'"></span>
+                    </button>
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-bold mb-2">辨識結果</h3>
+                    <p class="text-slate-500" x-show="!ap.sealMatched && !ap.busy">尚未拍攝，拍攝後系統將自動比對留存印鑑。</p>
+                    <p class="text-slate-500" x-show="ap.busy">辨識中，請稍候…</p>
+                    <div class="zn-note zn-note-success" x-show="ap.sealMatched"><i data-lucide="circle-check" class="w-6 h-6 shrink-0"></i><div>已比對到留存印鑑，請確認下方客戶資料。</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 已識別客戶 -->
+            <div class="zn-card zn-card-pad zn-fade border-2 !border-[var(--zn-primary)]" x-show="ap.cust">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="zn-section-title">已識別客戶</h2>
+                <button class="btn btn-ghost-gray" @click="resetCust()"><i data-lucide="refresh-cw" class="w-5 h-5"></i>重新識別</button>
+              </div>
+              <template x-if="ap.cust">
+                <dl class="zn-kv">
+                  <dt>姓名</dt><dd x-text="ap.cust?.name"></dd>
+                  <dt>身分證號</dt><dd x-text="ZN.maskId(ap.cust?.idNo)"></dd>
+                  <dt>聯絡電話</dt><dd x-text="ap.cust?.phone"></dd>
+                  <dt>客戶編號</dt><dd x-text="ap.cust?.id"></dd>
+                </dl>
+              </template>
+              <div class="zn-note zn-note-warn mt-4" x-show="ap.byCert">
+                <i data-lucide="triangle-alert" class="w-6 h-6 shrink-0"></i>
+                <div>代辦情境：僅顯示此張權狀，不顯示名下其他資產（權狀 <b x-text="ap.byCert"></b>）</div>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <!-- ---------- ② 選擇資產與手續 ---------- -->
+        <template x-if="ap.step===2 && !ap.done">
+          <section class="zn-fade space-y-5">
+            <!-- 權狀層級異動 -->
+            <div class="zn-card zn-card-pad !p-4 sm:!p-6">
+              <div class="flex flex-wrap items-center gap-3 mb-2">
+                <h2 class="zn-section-title flex-1 min-w-[14rem]">1. 選擇要辦理的資產與業務 <span class="text-base font-normal text-slate-500">（可複選）</span></h2>
+                <button class="btn btn-soft" :disabled="ap.selAssets.length<2" @click="openBatch()"><i data-lucide="layers" class="w-5 h-5"></i>批次異動</button>
+              </div>
+              <p class="zn-hint !mt-0 mb-4">勾選權狀後，依辦理先後加入異動項目：<b>排在前面者先辦理</b>。只能從最後面新增或刪除；中間的項目可點選直接更換。</p>
+
+              <div class="space-y-3">
+                <template x-for="a in assetList()" :key="a.certNo">
+                  <div class="rounded-2xl border-2 transition-colors" :class="a.lockedBy ? 'border-slate-200 bg-slate-50' : (ap.selAssets.includes(a.certNo) ? 'border-[#61b0db] bg-[#f3fbff]' : 'border-slate-200 bg-white')">
+                    <!-- 權狀列 -->
+                    <div class="flex gap-3 sm:gap-4 p-4 cursor-pointer" :class="{'opacity-60 !cursor-not-allowed': a.lockedBy}" @click="toggleAsset(a)">
+                      <div class="zn-check mt-1" :style="ap.selAssets.includes(a.certNo) ? 'background:var(--zn-primary);border-color:var(--zn-primary)' : ''">
+                        <span x-show="!a.lockedBy"><i data-lucide="check" class="w-5 h-5"></i></span>
+                        <span x-show="a.lockedBy"><i data-lucide="lock" class="w-4 h-4 text-slate-500"></i></span>
+                      </div>
+                      <div class="flex-1 min-w-0 grid gap-x-6 gap-y-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <span class="zn-badge" :class="a.type==='塔位' ? 'zn-badge-blue' : (a.type==='蓮位' ? 'zn-badge-gold' : 'zn-badge-gray')" x-text="a.type"></span>
+                          <b class="text-lg" x-text="a.certNo"></b>
+                          <span class="zn-badge" :class="usageBadge(a.usage)" x-text="a.usage"></span>
+                        </div>
+                        <div class="text-base text-slate-500 lg:text-right" x-text="a.spec"></div>
+                        <div class="text-base text-slate-500" x-show="a.pos">位置：<b class="text-slate-700" x-text="a.pos"></b><span class="hidden sm:inline" x-text="'（' + ZN.posText(a.pos) + '）'"></span></div>
+                        <div class="text-base text-slate-500" x-show="a.deceased.length">使用人：<b class="text-slate-700" x-text="a.deceased.map(d=>d.name).join('、')"></b></div>
+                        <div class="text-base text-slate-500" x-show="a.executor">執行人：<b class="text-slate-700" x-text="a.executor"></b></div>
+                        <div class="text-base font-semibold text-red-600 lg:col-span-2" x-show="a.lockedBy" x-text="'🔒 此位置目前已被鎖定，無法建立申請單：' + a.lockedBy"></div>
+                      </div>
+                    </div>
+
+                    <!-- 辦理順序鏈 -->
+                    <div class="px-4 pb-4" x-show="ap.selAssets.includes(a.certNo)">
+                      <div class="rounded-xl bg-white border border-slate-200 p-3 sm:p-4">
+                        <div class="text-sm font-bold text-slate-500 mb-2">辦理順序</div>
+                        <div class="flex flex-wrap items-center gap-2">
+                          <template x-for="(n,idx) in chainOf(a.certNo)" :key="a.certNo+idx+n.code">
+                            <div class="contents">
+                              <div class="chain-node" :class="{'is-auto': n.auto}">
+                                <span class="chain-seq" x-text="idx+1"></span>
+                                <span class="font-bold px-1" x-text="item(n.code).name"></span><i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                                <select class="chain-sel" :value="n.code" @change="changeAt(a, idx, $event.target.value)" :aria-label="'第'+(idx+1)+'項，點選可更換'">
+                                  <template x-for="o in slotOptions(a, idx)" :key="o.code">
+                                    <option :value="o.code" :disabled="!!o.why && o.code!==n.code" :selected="o.code===n.code" x-text="o.name + (o.why && o.code!==n.code ? '（' + o.why + '）' : '')"></option>
+                                  </template>
+                                </select>
+                                <span class="zn-badge zn-badge-gray !text-xs !px-2" x-show="n.auto">自動</span>
+                                <button class="chain-x" x-show="idx===chainOf(a.certNo).length-1" @click.stop="removeTail(a)" title="刪除此項" aria-label="刪除最後一項"><i data-lucide="x" class="w-4 h-4"></i></button>
+                              </div>
+                              <i data-lucide="arrow-right" class="w-5 h-5 text-slate-400 shrink-0"></i>
+                            </div>
+                          </template>
+                          <label class="chain-add">
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                            <span class="font-bold" x-text="chainOf(a.certNo).length ? '新增下一項' : '請選擇異動項目'"></span>
+                            <select class="chain-sel" @change="addTail(a, $event.target.value); $event.target.value=''" aria-label="新增下一項">
+                              <option value="" x-text="chainOf(a.certNo).length ? '新增下一項' : '請選擇異動項目'"></option>
+                              <template x-for="o in slotOptions(a, chainOf(a.certNo).length)" :key="o.code">
+                                <option :value="o.code" :disabled="!!o.why" x-text="o.name + (o.why ? '（' + o.why + '）' : '')"></option>
+                              </template>
+                            </select>
+                          </label>
+                        </div>
+                        <div class="zn-error-text font-semibold" x-show="!chainOf(a.certNo).length">尚未選擇異動項目</div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <div class="text-center text-slate-500 py-6" x-show="assetList().length===0">查無符合條件的資料</div>
+              </div>
+            </div>
+
+            <!-- 客戶層級異動 -->
+            <div class="zn-card zn-card-pad !p-4 sm:!p-6">
+              <h2 class="zn-section-title mb-1">2. 選擇要異動的客戶資料 <span class="text-base font-normal text-slate-500">（選填）</span></h2>
+              <p class="zn-hint !mt-0 mb-4">客戶本人的資料變更，會同步套用到 <b x-text="ap.cust?.name"></b> 名下全部 <b x-text="validCertCount()"></b> 張權狀，不需逐張選擇。</p>
+              <div class="grid gap-3 sm:grid-cols-3">
+                <template x-for="it in custLevelItems()" :key="it.code">
+                  <div class="zn-choice !py-3" role="checkbox" :aria-checked="ap.custItems.includes(it.code)" tabindex="0"
+                       :class="{'is-on': ap.custItems.includes(it.code), 'opacity-60 !cursor-not-allowed': !ap.custItems.includes(it.code) && custBlock(it)}"
+                       @click="toggleCust(it)" @keydown.space.prevent="toggleCust(it)">
+                    <div class="zn-check mt-0.5"><i data-lucide="check" class="w-5 h-5"></i></div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-bold text-lg" x-text="it.name"></div>
+                      <div class="text-sm" style="color:var(--zn-primary-deep)">規費：<span x-text="it.feeRule"></span></div>
+                      <div class="text-sm text-red-600 font-semibold" x-show="!ap.custItems.includes(it.code) && custBlock(it)" x-text="custBlock(it)"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="zn-note zn-note-info !text-lg font-bold justify-center flex-wrap text-center">
+              已選 <span x-text="ap.selAssets.length"></span> 張權狀 · 共 <span x-text="sections().length"></span> 項異動
+              <span class="text-red-600" x-show="emptyChains().length" x-text="'（' + emptyChains().join('、') + ' 尚未選擇項目）'"></span>
+            </div>
+
+            <!-- 批次異動 -->
+            <div class="modal" :class="{'modal-open': ap.batch.open}">
+              <div class="modal-box max-w-3xl">
+                <h3 class="text-2xl font-bold">批次異動</h3>
+                <p class="text-slate-500 mt-1">同一條辦理順序，套用到已勾選的 <b x-text="ap.selAssets.length"></b> 張權狀（會覆蓋原本的順序）。</p>
+                <div class="overflow-x-auto mt-4 rounded-xl border">
+                  <table class="table text-base">
+                    <thead><tr class="text-slate-500"><th>權狀編號</th><th>產品類型</th><th>位置/編碼</th><th>使用狀態</th></tr></thead>
+                    <tbody><template x-for="a in chosenAssets()" :key="a.certNo"><tr><td class="font-bold whitespace-nowrap" x-text="a.certNo"></td><td x-text="a.type"></td><td class="whitespace-nowrap" x-text="a.pos || '—'"></td><td><span class="zn-badge" :class="usageBadge(a.usage)" x-text="a.usage"></span></td></tr></template></tbody>
+                  </table>
+                </div>
+                <div class="mt-4 font-bold">已選擇異動項目</div>
+                <div class="flex flex-wrap items-center gap-2 mt-2">
+                  <template x-for="(n,idx) in ap.batch.chain" :key="'b'+idx+n.code">
+                    <div class="contents">
+                      <div class="chain-node"><span class="chain-seq" x-text="idx+1"></span><span class="font-bold px-1" x-text="item(n.code).name"></span>
+                        <button class="chain-x" x-show="idx===ap.batch.chain.length-1" @click="ap.batch.chain.pop()" aria-label="刪除最後一項"><i data-lucide="x" class="w-4 h-4"></i></button></div>
+                      <i data-lucide="arrow-right" class="w-5 h-5 text-slate-400"></i>
+                    </div>
+                  </template>
+                  <label class="chain-add"><i data-lucide="plus" class="w-5 h-5"></i>
+                    <span class="font-bold">新增異動項目</span>
+                    <select class="chain-sel" @change="batchAdd($event.target.value); $event.target.value=''" aria-label="新增異動項目">
+                      <option value="">請選擇異動項目</option>
+                      <template x-for="o in batchOptions(ap.batch.chain.length)" :key="o.code"><option :value="o.code" :disabled="!!o.why" x-text="o.name + (o.why ? '（' + o.why + '）' : '')"></option></template>
+                    </select></label>
+                </div>
+                <p class="zn-hint">只列出所有勾選權狀都能辦理的項目；需「已使用」的項目，未使用的權狀會自動略過。</p>
+                <div class="modal-action flex-wrap">
+                  <button class="btn btn-ghost-gray btn-lg" @click="ap.batch.open=false">取消</button>
+                  <button class="btn btn-primary btn-lg" :disabled="!ap.batch.chain.length" @click="applyBatch()">套用至全部</button>
+                </div>
+              </div>
+              <div class="modal-backdrop bg-black/40" @click="ap.batch.open=false"></div>
+            </div>
+          </section>
+        </template>
+
+        <!-- ---------- ③ 印鑑比對 ---------- -->
+        <template x-if="ap.step===3 && !ap.done">
+          <section class="zn-fade">
+            <div class="zn-note zn-note-info mb-5"><i data-lucide="info" class="w-6 h-6 shrink-0"></i><div>請客戶在紙本上蓋印，拍照後與系統留存印鑑逐一比對外型、字體與位置是否相符。</div></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div class="zn-card zn-card-pad text-center">
+                <h2 class="zn-section-title mb-4 justify-center">系統留存印鑑</h2>
+                <button class="block mx-auto" @click="openZoom(ZN.fakeSeal(ap.cust?.seal),'系統留存印鑑')">
+                  <img :src="ZN.fakeSeal(ap.cust?.seal)" class="w-44 h-44 sm:w-56 sm:h-56 rounded-xl border mx-auto" alt="系統留存印鑑">
+                </button>
+                <p class="zn-hint mt-3"><i data-lucide="zoom-in" class="w-4 h-4 inline"></i> 點圖片可放大檢視</p>
+              </div>
+              <div class="zn-card zn-card-pad text-center">
+                <h2 class="zn-section-title mb-4 justify-center">掃描現場用印</h2>
+                <template x-if="!ap.sealPhoto">
+                  <button class="photo-slot w-full h-56 flex flex-col items-center justify-center gap-2 text-slate-500 hover:bg-slate-100" @click="takeSealPhoto()">
+                    <i data-lucide="camera" class="w-14 h-14"></i>
+                    <span class="text-2xl font-bold" style="color:var(--zn-primary-deep)">＋ 拍照</span>
+                    <span class="text-base">拍攝客戶現場用印</span>
+                  </button>
+                </template>
+                <template x-if="ap.sealPhoto">
+                  <div>
+                    <button class="block mx-auto" @click="openZoom(ap.sealPhoto,'現場用印')"><img :src="ap.sealPhoto" class="w-56 h-56 rounded-xl border mx-auto" alt="現場用印"></button>
+                    <button class="btn btn-soft mt-3" @click="takeSealPhoto()"><i data-lucide="rotate-ccw" class="w-5 h-5"></i>重新拍攝</button>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <!-- ---------- ④ 填寫資料 ---------- -->
+        <template x-if="ap.step===4 && !ap.done">
+          <section class="zn-fade space-y-4">
+            <div class="zn-note zn-note-error" x-show="ap.showErr && step4Errors().length>0">
+              <i data-lucide="circle-alert" class="w-6 h-6 shrink-0"></i>
+              <div><div class="font-bold">還有 <span x-text="step4Errors().length"></span> 項必填資料未完成：</div>
+                <div class="text-base" x-text="step4Errors().slice(0,8).join('、') + (step4Errors().length>8 ? '…' : '')"></div></div>
+            </div>
+
+            <!-- 自動帶入持有人 -->
+            <div class="zn-card zn-card-pad">
+              <div class="flex items-center gap-3 mb-3"><h2 class="zn-section-title">持有人資料</h2><span class="zn-badge zn-badge-blue">自動帶入</span></div>
+              <dl class="zn-kv">
+                <dt>姓名</dt><dd x-text="ap.cust?.name"></dd>
+                <dt>身分證號</dt><dd x-text="ZN.maskId(ap.cust?.idNo)"></dd>
+                <dt>電話</dt><dd x-text="ap.cust?.phone"></dd>
+                <dt>地址</dt><dd x-text="ap.cust?.addr"></dd>
+              </dl>
+            </div>
+
+            <template x-for="sec in sections()" :key="sec.key">
+              <div class="zn-card" x-data="{get f(){ return ap.form[sec.key] }, it: sec.it, sk: sec.key}">
+                <div class="px-4 sm:px-5 pt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-500" x-show="sec.cert && (sec.seq===1)">
+                  <i data-lucide="file-badge" class="w-4 h-4"></i><span x-text="'權狀 ' + sec.cert"></span><span class="font-normal" x-text="'辦理順序：' + chainText(sec.cert)"></span>
+                </div>
+                <div class="px-4 sm:px-5 pt-3 flex items-center gap-2 text-sm font-semibold text-slate-500" x-show="!sec.cert">
+                  <i data-lucide="user-round-pen" class="w-4 h-4"></i>客戶資料異動（套用至名下全部權狀）
+                </div>
+                <button class="w-full flex flex-wrap sm:flex-nowrap items-center gap-3 p-4 sm:p-5 text-left" @click="ap.openSec[sk]=!ap.openSec[sk]">
+                  <span class="zn-tile-icon !w-11 !h-11 text-xl font-extrabold" x-text="sec.cert ? seqMark(sec.seq) : '人'"></span>
+                  <span class="flex-1 min-w-0"><span class="text-xl font-bold" x-text="it.name"></span><span class="zn-badge zn-badge-gray !text-xs ml-2" x-show="sec.auto">自動加入</span><span class="block sm:inline sm:ml-3 text-slate-500" x-text="(sec.cert ? sec.cert + '　' : '') + it.desc"></span></span>
+                  <span class="zn-badge zn-badge-red" x-show="ap.showErr && itemErrors(sec).length>0">待補 <span x-text="itemErrors(sec).length"></span> 項</span>
+                  <span x-show="ap.openSec[sk]"><i data-lucide="chevron-up" class="w-6 h-6"></i></span>
+                  <span x-show="!ap.openSec[sk]"><i data-lucide="chevron-down" class="w-6 h-6"></i></span>
+                </button>
+
+                <div class="px-4 sm:px-5 pb-6 space-y-5" x-show="ap.openSec[sk]">
+                  <div class="zn-note zn-note-info !py-2 items-center flex-wrap" x-show="prevSame(sec) && ((it.fields||[]).length || (it.docs||[]).length)">
+                    <span class="flex-1">與 <b x-text="prevSame(sec) && prevSame(sec).cert"></b> 的「<span x-text="it.name"></span>」資料相同？</span>
+                    <button class="btn btn-soft btn-sm" @click="copyFrom(sec)"><i data-lucide="copy" class="w-4 h-4"></i>一鍵帶入</button>
+                  </div>
+                  <div class="text-slate-500" x-show="!(it.fields||[]).length && !(it.docs||[]).length">此手續無需額外填寫資料，直接下一步即可。</div>
+
+                  <!-- 動態欄位 -->
+                  <template x-for="fld in (it.fields||[])" :key="fld">
+                    <div class="rounded-xl bg-slate-50 p-4">
+                      <h3 class="font-bold text-lg mb-3" x-text="fld"></h3>
+
+                      <!-- 人員：受讓人／繼承人／新執行人／新使用人 -->
+                      <template x-if="personFields.includes(fld)">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div><label class="zn-label"><span class="req">*</span>姓名</label><input class="input w-full" :class="{'is-bad': bad(f[fld].name)}" x-model="f[fld].name"></div>
+                          <div><label class="zn-label"><span class="req">*</span>身分證號</label><input class="input w-full uppercase" :class="{'is-bad': bad(f[fld].idNo)}" x-model="f[fld].idNo"></div>
+                          <div><label class="zn-label"><span class="req">*</span>電話</label><input class="input w-full" inputmode="tel" :class="{'is-bad': bad(f[fld].phone)}" x-model="f[fld].phone"></div>
+                          <div><label class="zn-label"><span class="req">*</span>與持有人關係</label>
+                            <select class="select w-full" :class="{'is-bad': bad(f[fld].relation)}" x-model="f[fld].relation">
+                              <option value="">請選擇</option>
+                              <template x-for="r in relations" :key="r"><option :value="r" x-text="r"></option></template>
+                            </select></div>
+                          <div class="sm:col-span-2"><label class="zn-label">地址</label><input class="input w-full" x-model="f[fld].addr"></div>
+                        </div>
+                      </template>
+
+                      <!-- 被繼承人 -->
+                      <template x-if="fld==='被繼承人'">
+                        <div class="flex items-center gap-3"><span class="zn-badge zn-badge-blue">自動帶入</span>
+                          <input class="input flex-1" readonly :value="ap.cust?.name + '（目前持有人）'"></div>
+                      </template>
+
+                      <!-- 新位置 -->
+                      <template x-if="fld==='新位置'">
+                        <div><label class="zn-label"><span class="req">*</span>希望換到的位置</label>
+                          <input class="input w-full" :class="{'is-bad': bad(f.newPos)}" x-model="f.newPos" placeholder="例：A 棟 9 樓 C 區 第 130 號 第 1 層"></div>
+                      </template>
+
+                      <!-- 換裝方式 -->
+                      <template x-if="fld==='換裝方式'">
+                        <div>
+                          <label class="zn-label"><span class="req">*</span>換裝方式</label>
+                          <div class="flex flex-col sm:flex-row gap-4">
+                            <label class="zn-choice flex-1 !items-center" :class="{'is-on': f.refit==='1換2'}"><input type="radio" class="radio radio-primary" value="1換2" x-model="f.refit"><span class="text-lg font-bold">1 換 2<span class="font-normal text-slate-500 ml-2">個人位換夫妻位</span></span></label>
+                            <label class="zn-choice flex-1 !items-center" :class="{'is-on': f.refit==='2換1'}"><input type="radio" class="radio radio-primary" value="2換1" x-model="f.refit"><span class="text-lg font-bold">2 換 1<span class="font-normal text-slate-500 ml-2">夫妻位換個人位</span></span></label>
+                          </div>
+                          <div class="zn-error-text" x-show="bad(f.refit)">請選擇換裝方式</div>
+                        </div>
+                      </template>
+
+                      <!-- 往生者 -->
+                      <template x-if="fld==='往生者'">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div class="sm:col-span-2"><label class="zn-label"><span class="req">*</span>往生者姓名</label><input class="input w-full" :class="{'is-bad': bad(f.dec.name)}" x-model="f.dec.name"></div>
+                          <template x-for="d in decDates" :key="d.k">
+                            <div>
+                              <label class="zn-label"><span class="req" x-show="d.req">*</span><span x-text="d.label"></span><span class="font-normal text-slate-500">（民國）</span></label>
+                              <div class="flex items-center gap-2">
+                                <input class="input w-20 text-center" inputmode="numeric" maxlength="3" placeholder="年" :class="{'is-bad': d.req && bad(f.dec[d.k].y)}" x-model="f.dec[d.k].y"><span>年</span>
+                                <input class="input w-16 text-center" inputmode="numeric" maxlength="2" placeholder="月" :class="{'is-bad': d.req && bad(f.dec[d.k].m)}" x-model="f.dec[d.k].m"><span>月</span>
+                                <input class="input w-16 text-center" inputmode="numeric" maxlength="2" placeholder="日" :class="{'is-bad': d.req && bad(f.dec[d.k].d)}" x-model="f.dec[d.k].d"><span>日</span>
+                              </div>
+                            </div>
+                          </template>
+                          <div><label class="zn-label">預定晉塔時辰</label>
+                            <select class="select w-full" x-model="f.dec.hour"><option value="">請選擇</option><template x-for="h in hours" :key="h"><option :value="h" x-text="h"></option></template></select></div>
+                        </div>
+                      </template>
+
+                      <!-- 新姓名 -->
+                      <template x-if="fld==='新姓名'">
+                        <div><label class="zn-label"><span class="req">*</span>新姓名</label><input class="input w-full" :class="{'is-bad': bad(f.newName)}" x-model="f.newName"></div>
+                      </template>
+
+                      <!-- 新印鑑（拍照） -->
+                      <template x-if="fld==='新印鑑'">
+                        <div>
+                          <label class="zn-label"><span class="req">*</span>新印鑑（請拍攝新印鑑）</label>
+                          <div class="photo-slot p-3 flex items-center gap-4" :class="{'is-bad': bad(ap.photos['seal|'+sk])}">
+                            <template x-if="ap.photos['seal|'+sk]"><img :src="ap.photos['seal|'+sk]" class="h-24 rounded-lg border" alt="新印鑑"></template>
+                            <button class="btn btn-soft" @click="shoot('seal|'+sk,'新印鑑')"><i data-lucide="camera" class="w-5 h-5"></i><span x-text="ap.photos['seal|'+sk] ? '重新拍攝' : '拍照'"></span></button>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- 牌位內容／新名條內容 -->
+                      <template x-if="fld==='牌位內容'">
+                        <div><label class="zn-label"><span class="req">*</span>牌位內容</label><textarea class="textarea w-full text-lg" rows="3" :class="{'is-bad': bad(f.tablet)}" x-model="f.tablet" placeholder="例：顯考 王大明 府君之蓮位"></textarea></div>
+                      </template>
+                      <template x-if="fld==='新名條內容'">
+                        <div><label class="zn-label"><span class="req">*</span>新名條內容</label><textarea class="textarea w-full text-lg" rows="3" :class="{'is-bad': bad(f.plate)}" x-model="f.plate" placeholder="請輸入名條上要刻印的文字"></textarea></div>
+                      </template>
+                    </div>
+                  </template>
+
+                  <!-- 證明文件 -->
+                  <div x-show="(it.docs||[]).length>0">
+                    <h3 class="font-bold text-lg mb-3">證明文件拍照 <span class="text-base font-normal text-slate-500">（身分證類文件將自動加上浮水印）</span></h3>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      <template x-for="doc in (it.docs||[])" :key="doc">
+                        <div class="photo-slot p-3" :class="{'is-bad': bad(ap.photos[sk+'|'+doc])}">
+                          <div class="font-semibold mb-2"><span class="text-red-600">*</span> <span x-text="doc"></span></div>
+                          <div class="relative h-32 rounded-lg overflow-hidden bg-white border grid place-items-center">
+                            <template x-if="ap.photos[sk+'|'+doc]">
+                              <div class="absolute inset-0">
+                                <img :src="ap.photos[sk+'|'+doc]" class="w-full h-full object-cover" alt="">
+                                <div class="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden" x-show="isIdDoc(doc)">
+                                  <div class="-rotate-[18deg] whitespace-pre text-center font-extrabold text-slate-800/45 text-sm leading-6" x-text="watermark()"></div>
+                                </div>
+                              </div>
+                            </template>
+                            <span class="text-slate-400" x-show="!ap.photos[sk+'|'+doc]">尚未拍攝</span>
+                          </div>
+                          <button class="btn btn-soft btn-sm w-full mt-2 !min-h-[2.75rem]" @click="shoot(sk+'|'+doc, doc)"><i data-lucide="camera" class="w-4 h-4"></i><span x-text="ap.photos[sk+'|'+doc] ? '重新拍攝' : '拍照'"></span></button>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <!-- ---------- ⑤ 費用確認 ---------- -->
+        <template x-if="ap.step===5 && !ap.done">
+          <section class="zn-fade space-y-5">
+            <div class="zn-card zn-card-pad">
+              <h2 class="zn-section-title mb-4">費用明細</h2>
+              <div class="overflow-x-auto">
+                <table class="table text-lg">
+                  <thead><tr class="text-base text-slate-500"><th>權狀</th><th>順序</th><th>手續</th><th>計費說明</th><th class="text-right">金額</th></tr></thead>
+                  <tbody>
+                    <template x-for="(r,i) in feeRows()" :key="i">
+                      <tr><td class="whitespace-nowrap" x-text="r.cert"></td><td class="text-center" x-text="r.seq"></td><td class="font-bold whitespace-nowrap"><span x-text="r.name"></span><span class="zn-badge zn-badge-gray !text-xs ml-1" x-show="r.auto">自動</span></td><td class="text-slate-500 text-base min-w-[12rem]" x-text="r.rule"></td><td class="text-right font-bold whitespace-nowrap" x-text="ZN.money(r.amt)"></td></tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-5 pt-5 border-t flex flex-wrap items-end justify-end gap-x-6 gap-y-1">
+                <span class="text-xl text-slate-500">應收總額</span>
+                <span class="text-5xl font-extrabold" style="color:var(--zn-primary-deep)" x-text="ZN.money(total())"></span>
+              </div>
+            </div>
+            <div class="zn-note zn-note-info"><i data-lucide="receipt" class="w-6 h-6 shrink-0"></i><div>手續費開立<b>發票</b>、管理費開立<b>收據</b>。實際收款由會計於後台審核後處理。</div></div>
+          </section>
+        </template>
+
+        <!-- ---------- ⑥ 確認簽名 ---------- -->
+        <template x-if="ap.step===6 && !ap.done">
+          <section class="zn-fade space-y-5">
+            <!-- 櫃檯模式：交給客戶 -->
+            <div class="zn-card zn-card-pad flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5" x-show="!ap.custMode">
+              <span class="zn-tile-icon !w-16 !h-16"><i data-lucide="tablet-smartphone" class="w-8 h-8"></i></span>
+              <div class="flex-1"><div class="text-2xl font-bold">請將 iPad 交給客戶確認</div><div class="text-slate-500">客戶模式會隱藏內部操作、放大文字，由客戶本人核對並簽名。</div></div>
+              <button class="btn btn-primary btn-lg" @click="enterCust()"><i data-lucide="hand" class="w-6 h-6"></i>交給客戶確認</button>
+            </div>
+
+            <div class="zn-card zn-card-pad text-center" x-show="ap.custMode">
+              <h1 class="text-3xl font-extrabold">請您確認申請內容</h1>
+              <p class="text-slate-500">確認無誤後，請勾選並在下方簽名</p>
+            </div>
+
+            <!-- 完整摘要 -->
+            <div class="zn-card zn-card-pad space-y-5">
+              <div><h2 class="zn-section-title mb-3">申請客戶</h2>
+                <dl class="zn-kv"><dt>姓名</dt><dd x-text="ap.cust?.name"></dd><dt>身分證號</dt><dd x-text="ZN.maskId(ap.cust?.idNo)"></dd><dt>客戶編號</dt><dd x-text="ap.cust?.id"></dd></dl></div>
+              <div><h2 class="zn-section-title mb-3">辦理資產與順序</h2>
+                <div class="space-y-4">
+                  <template x-for="a in chosenAssets()" :key="a.certNo">
+                    <div class="rounded-xl border border-slate-200 p-4">
+                      <div class="flex flex-wrap items-baseline gap-x-3"><b class="text-lg" x-text="a.certNo"></b><span x-text="a.type + '・' + a.spec"></span><span class="text-slate-500" x-show="a.pos" x-text="ZN.posText(a.pos)"></span></div>
+                      <div class="font-semibold mt-1" style="color:var(--zn-primary-deep)" x-text="'辦理順序：' + chainText(a.certNo)"></div>
+                      <div class="space-y-2 mt-3">
+                        <template x-for="sec in sections().filter(x=>x.cert===a.certNo)" :key="sec.key">
+                          <div class="rounded-lg bg-slate-50 p-3"><div class="font-bold" x-text="seqMark(sec.seq) + ' ' + sec.it.name"></div>
+                            <template x-for="(l,i) in summaryLines(sec)" :key="i"><div class="text-slate-600" x-text="l"></div></template></div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div></div>
+              <div x-show="ap.custItems.length"><h2 class="zn-section-title mb-3">客戶資料異動</h2>
+                <div class="space-y-2">
+                  <template x-for="sec in sections().filter(x=>!x.cert)" :key="sec.key">
+                    <div class="rounded-lg bg-slate-50 p-3"><div class="font-bold" x-text="sec.it.name + '（套用至名下全部權狀）'"></div>
+                      <template x-for="(l,i) in summaryLines(sec)" :key="i"><div class="text-slate-600" x-text="l"></div></template></div>
+                  </template>
+                </div></div>
+              <div class="zn-note zn-note-warn" x-show="hasSplit() && !ap.custMode"><i data-lucide="split" class="w-6 h-6 shrink-0"></i><div>本申請含「轉讓／繼承」，送出後後台會在持有人變更處自動拆成兩張申請單，依順序辦理。</div></div>
+              <div><h2 class="zn-section-title mb-3">應繳費用</h2>
+                <div class="text-4xl font-extrabold" style="color:var(--zn-primary-deep)" x-text="ZN.money(total())"></div></div>
+            </div>
+
+            <!-- 客戶模式：同意 + 簽名 -->
+            <template x-if="ap.custMode">
+              <div class="zn-card zn-card-pad space-y-4" x-data="signPad('customer')" @signed="ap.signed=$event.detail.value">
+                <label class="zn-choice !items-center cursor-pointer" :class="{'is-on': ap.agree}">
+                  <input type="checkbox" class="checkbox checkbox-primary checkbox-lg" x-model="ap.agree">
+                  <span class="text-xl font-bold">本人確認以上內容無誤</span>
+                </label>
+                <div class="flex items-center justify-between"><h2 class="zn-section-title">客戶簽名</h2>
+                  <button class="btn btn-ghost-gray" @click="clear()"><i data-lucide="eraser" class="w-5 h-5"></i>清除重簽</button></div>
+                <canvas class="zn-sign-pad h-[200px] sm:h-[260px]"></canvas>
+                <p class="zn-hint">請用手指或觸控筆在上方框內簽名</p>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <!-- ---------- 完成 ---------- -->
+        <template x-if="ap.done">
+          <section class="zn-fade zn-card zn-card-pad text-center !py-12 max-w-3xl mx-auto mt-6">
+            <div class="mx-auto w-28 h-28 rounded-full bg-green-100 text-green-600 grid place-items-center mb-5"><i data-lucide="circle-check-big" class="w-16 h-16"></i></div>
+            <h1 class="text-4xl font-extrabold">申請已送出</h1>
+            <div class="mt-5 text-slate-500 text-lg">申請單號</div>
+            <div class="text-2xl sm:text-4xl font-extrabold tracking-wider break-all" style="color:var(--zn-primary-deep)" x-text="ap.appNo"></div>
+            <div class="mt-4"><span class="!text-lg !px-5 !py-1" :class="ZN.badge('待會計審核')">待會計審核</span></div>
+            <p class="mt-5 text-xl">已送至後台申請單總覽，待會計審核</p>
+            <dl class="zn-kv max-w-md mx-auto mt-6 text-left">
+              <dt>客戶</dt><dd x-text="ap.cust?.name"></dd>
+              <dt>手續</dt><dd x-text="selectedItems().map(i=>i.name).join('、')"></dd>
+              <dt>應收費用</dt><dd x-text="ZN.money(ap.paid)"></dd>
+              <dt>送出時間</dt><dd x-text="ap.submittedAt"></dd>
+            </dl>
+            <div class="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 mt-8 no-print">
+              <button class="btn btn-soft btn-lg" @click="window.print()"><i data-lucide="printer" class="w-6 h-6"></i>列印申請確認單</button>
+              <button class="btn btn-primary btn-lg" @click="finishApply()"><i data-lucide="house" class="w-6 h-6"></i>回主選單</button>
+            </div>
+          </section>
+        </template>
+      </main>
+
+      <!-- 底部操作列 -->
+      <div class="sticky bottom-0 z-20 bg-white border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,.06)] no-print" x-show="!ap.done">
+        <div class="max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-4 act-bar">
+          <!-- 一般步驟 -->
+          <template x-if="!(ap.step===6 && ap.custMode)">
+            <button class="btn btn-ghost-gray btn-lg" :disabled="ap.step===1" @click="prev()" aria-label="上一步"><i data-lucide="arrow-left" class="w-6 h-6"></i><span class="max-sm:hidden">上一步</span></button>
+          </template>
+          <template x-if="ap.step===6 && ap.custMode">
+            <button class="btn btn-ghost-gray btn-lg" @click="exitCust()"><i data-lucide="undo-2" class="w-6 h-6"></i>交還<span class="max-sm:hidden">櫃檯人員</span></button>
+          </template>
+          <button class="btn btn-link text-red-600 no-underline hover:underline max-sm:px-1" x-show="!ap.custMode" @click="cancelApply()">取消<span class="max-sm:hidden">申請</span></button>
+          <div class="flex-1"></div>
+
+          <template x-if="ap.step<3 || (ap.step>3 && ap.step<6)">
+            <button class="btn btn-primary btn-lg" :disabled="!canNext()" @click="next()">下一步<i data-lucide="arrow-right" class="w-6 h-6"></i></button>
+          </template>
+          <template x-if="ap.step===3">
+            <div class="flex gap-3">
+              <button class="btn btn-danger btn-lg" @click="askConfirm({title:'確定比對不符？',msg:'將終止本次申請並回到主選單，已填寫的內容不會保存。',ok:'確定終止',danger:true,fn:()=>terminate()})"><i data-lucide="x" class="w-6 h-6"></i>比對不符</button>
+              <button class="btn btn-success btn-lg" :disabled="!ap.sealPhoto" @click="next()"><i data-lucide="check" class="w-6 h-6"></i>比對相符<span class="max-sm:hidden">，進行下一步</span></button>
+            </div>
+          </template>
+          <template x-if="ap.step===6 && !ap.custMode">
+            <button class="btn btn-primary btn-lg" @click="enterCust()">交給客戶確認<i data-lucide="arrow-right" class="w-6 h-6"></i></button>
+          </template>
+          <template x-if="ap.step===6 && ap.custMode">
+            <button class="btn btn-primary btn-xl max-sm:!min-h-[3.25rem] max-sm:!px-5 max-sm:!text-lg" :disabled="!(ap.signed && ap.agree)" @click="submitApply()"><i data-lucide="send" class="w-6 h-6"></i>送出申請</button>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ====================== 4. 資料領取與簽收 ====================== -->
+  <template x-if="view==='receive'">
+    <main class="zn-fade flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+      <div class="zn-card zn-card-pad">
+        <h2 class="zn-section-title mb-4">查詢申請單</h2>
+        <div class="flex gap-3">
+          <input class="input input-lg flex-1" x-model="rcv.q" placeholder="輸入申請單號、客戶姓名或身分證號">
+          <button class="btn btn-ghost-gray btn-lg" x-show="rcv.q" @click="rcv.q=''">清除</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mt-3">
+          <span class="zn-hint !mt-0">示範資料：</span>
+          <button class="btn btn-soft btn-sm !min-h-[2.5rem]" @click="rcv.q='APP-20261028-012'">APP-20261028-012</button>
+          <button class="btn btn-soft btn-sm !min-h-[2.5rem]" @click="rcv.q='林秀英'">林秀英</button>
+          <button class="btn btn-soft btn-sm !min-h-[2.5rem]" @click="rcv.q='H120987654'">H120987654</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- 清單 -->
+        <div class="lg:col-span-5 space-y-3">
+          <template x-for="a in receiveList()" :key="a.no">
+            <div class="zn-choice !block" :class="{'is-on': rcv.sel && rcv.sel.no===a.no}" @click="selectApp(a)">
+              <div class="flex items-center justify-between gap-2">
+                <b class="text-lg" x-text="a.no"></b>
+                <span :class="signBadge(a)" x-text="a.sign"></span>
+              </div>
+              <div class="mt-1" x-text="ZN.customerOf(a.owner).name + '　' + a.items.join('、')"></div>
+              <div class="flex items-center gap-2 mt-1 text-base text-slate-500">
+                <span :class="ZN.badge(a.status)" x-text="a.status"></span>
+                <span x-show="a.sign==='已簽收'" x-text="'簽收日 ' + ZN.roc(a.signedAt)"></span>
+              </div>
+            </div>
+          </template>
+          <div class="zn-card zn-card-pad text-center text-slate-500" x-show="receiveList().length===0">查無符合條件的資料</div>
+        </div>
+
+        <!-- 詳情 -->
+        <div class="lg:col-span-7">
+          <div class="zn-card zn-card-pad text-center text-slate-500 !py-16" x-show="!rcv.sel"><i data-lucide="mouse-pointer-click" class="w-12 h-12 mx-auto mb-3"></i>請由左側選擇一筆申請單</div>
+          <template x-if="rcv.sel">
+            <div class="space-y-4 zn-fade">
+              <div class="zn-card zn-card-pad">
+                <div class="flex items-center justify-between mb-3"><h2 class="zn-section-title">申請單內容</h2><span :class="ZN.badge(rcv.sel.status)" x-text="rcv.sel.status"></span></div>
+                <dl class="zn-kv">
+                  <dt>申請單號</dt><dd x-text="rcv.sel.no"></dd>
+                  <dt>客戶</dt><dd x-text="ZN.customerOf(rcv.sel.owner).name + '（' + ZN.maskId(ZN.customerOf(rcv.sel.owner).idNo) + '）'"></dd>
+                  <dt>辦理手續</dt><dd x-text="rcv.sel.items.join('、')"></dd>
+                  <dt>權狀</dt><dd><span x-text="rcv.sel.certs.join('、')"></span> <span class="text-slate-400">→</span> <span x-text="rcv.sel.newCert || '（無新權狀）'"></span></dd>
+                  <dt>費用</dt><dd x-text="ZN.money(rcv.sel.fee)"></dd>
+                  <dt>申請日期</dt><dd x-text="ZN.roc(rcv.sel.date)"></dd>
+                </dl>
+                <div class="zn-note zn-note-success mt-4" x-show="rcv.sel.sign==='已簽收'"><i data-lucide="circle-check" class="w-6 h-6 shrink-0"></i><div>已於 <b x-text="ZN.roc(rcv.sel.signedAt)"></b> 簽收完成。</div></div>
+                <div class="zn-note zn-note-warn mt-4" x-show="rcv.sel.sign!=='已簽收' && rcv.sel.sign!=='未簽收'"><i data-lucide="info" class="w-6 h-6 shrink-0"></i><div>此申請單目前不需（或尚不能）辦理簽收。</div></div>
+              </div>
+
+              <template x-if="rcv.sel.sign==='未簽收'">
+                <div class="zn-card zn-card-pad space-y-4" x-data="signPad('recv')" @signed="rcv.signed=$event.detail.value">
+                  <h2 class="zn-section-title">領件人</h2>
+                  <div class="flex gap-4">
+                    <label class="zn-choice flex-1 !items-center" :class="{'is-on': rcv.who==='self'}"><input type="radio" class="radio radio-primary" value="self" x-model="rcv.who"><span class="text-lg font-bold">本人領取</span></label>
+                    <label class="zn-choice flex-1 !items-center" :class="{'is-on': rcv.who==='agent'}"><input type="radio" class="radio radio-primary" value="agent" x-model="rcv.who"><span class="text-lg font-bold">代理人領取</span></label>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" x-show="rcv.who==='agent'">
+                    <div><label class="zn-label"><span class="req">*</span>代理人姓名</label><input class="input w-full" x-model="rcv.agentName"></div>
+                    <div><label class="zn-label"><span class="req">*</span>代理人身分證件</label>
+                      <div class="photo-slot p-2 flex items-center gap-3">
+                        <div class="relative" x-show="rcv.agentPhoto"><img :src="rcv.agentPhoto" class="h-14 rounded border" alt="">
+                          <div class="absolute inset-0 grid place-items-center text-[9px] font-extrabold text-slate-800/50 -rotate-12 pointer-events-none">慈恩園業務專用</div></div>
+                        <button class="btn btn-soft btn-sm !min-h-[2.75rem]" @click="rcv.agentPhoto = ZN.fakePhoto('代理人身分證')"><i data-lucide="camera" class="w-4 h-4"></i><span x-text="rcv.agentPhoto ? '重拍' : '拍照'"></span></button>
+                      </div></div>
+                  </div>
+                  <div class="flex items-center justify-between"><h2 class="zn-section-title">領件人簽名</h2>
+                    <button class="btn btn-ghost-gray" @click="clear()"><i data-lucide="eraser" class="w-5 h-5"></i>清除重簽</button></div>
+                  <canvas class="zn-sign-pad" style="height:200px"></canvas>
+                  <button class="btn btn-primary btn-xl w-full" :disabled="!canReceive()" @click="askConfirm({title:'確認簽收',msg:'簽收後將無法修改，確定領件人已核對無誤？',ok:'確認簽收',fn:()=>doReceive()})"><i data-lucide="check-check" class="w-6 h-6"></i>確認簽收</button>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+    </main>
+  </template>
+
+  <!-- ====================== 5. 存放證掃描 ====================== -->
+  <template x-if="view==='scan'">
+    <main class="zn-fade flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6">
+
+      <!-- 掃描 / 結果 -->
+      <template x-if="['idle','scanning','valid','invalid'].includes(scn.phase)">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="space-y-4">
+            <div class="vf">
+              <div class="vf-frame"><span class="vf-c tl"></span><span class="vf-c tr"></span><span class="vf-c bl"></span><span class="vf-c br"></span></div>
+              <div class="vf-line"></div>
+              <div class="absolute bottom-4 inset-x-0 text-center text-white/80 text-lg" x-text="scn.phase==='scanning' ? '辨識中…' : '請將存放證 QR 對準框內'"></div>
+            </div>
+            <button class="btn btn-primary btn-lg w-full" :disabled="scn.phase==='scanning'" @click="simScan(true)"><i data-lucide="scan-qr-code" class="w-6 h-6"></i>模擬掃描：有效存放證</button>
+            <button class="btn btn-danger btn-lg w-full" :disabled="scn.phase==='scanning'" @click="simScan(false)"><i data-lucide="scan-qr-code" class="w-6 h-6"></i>模擬掃描：失效存放證</button>
+          </div>
+
+          <div>
+            <div class="zn-card zn-card-pad text-center text-slate-500 !py-20" x-show="scn.phase==='idle' || scn.phase==='scanning'">
+              <i data-lucide="scan-line" class="w-14 h-14 mx-auto mb-3"></i>
+              <div class="text-xl" x-text="scn.phase==='scanning' ? '正在驗證存放證…' : '掃描結果會顯示在這裡'"></div>
+            </div>
+
+            <template x-if="scn.phase==='valid'">
+              <div class="zn-card zn-card-pad zn-fade border-2 !border-green-500 space-y-4">
+                <div class="flex items-center gap-3"><span class="zn-badge zn-badge-green !text-xl !px-5 !py-1" :class="ZN.badge('有效')"><i data-lucide="shield-check" class="w-6 h-6"></i>有效</span><span class="text-slate-500">存放證驗證通過</span></div>
+                <dl class="zn-kv">
+                  <dt>持有人</dt><dd x-text="ZN.customerOf(scn.asset.owner).name"></dd>
+                  <dt>往生者</dt><dd x-text="scn.asset.deceased.map(d=>d.name).join('、')"></dd>
+                  <dt>位置號碼</dt><dd x-text="scn.asset.pos"></dd>
+                  <dt>位置說明</dt><dd x-text="ZN.posText(scn.asset.pos)"></dd>
+                  <dt>存放狀態</dt><dd><span class="zn-badge zn-badge-green" x-text="scn.asset.usage"></span></dd>
+                </dl>
+                <button class="btn btn-primary btn-xl w-full" @click="scn.phase='visit'"><i data-lucide="user-plus" class="w-6 h-6"></i>登記訪客到訪</button>
+              </div>
+            </template>
+
+            <template x-if="scn.phase==='invalid'">
+              <div class="zn-card zn-card-pad zn-fade border-2 !border-red-500 text-center space-y-3">
+                <div class="mx-auto w-20 h-20 rounded-full bg-red-100 text-red-600 grid place-items-center"><i data-lucide="shield-x" class="w-12 h-12"></i></div>
+                <div class="text-4xl font-extrabold text-red-600">此存放證已失效</div>
+                <span :class="ZN.badge('已失效')">已失效</span>
+                <div class="zn-note zn-note-error text-left"><i data-lucide="circle-alert" class="w-6 h-6 shrink-0"></i><div>失效原因：此存放證已於 <b x-text="ZN.roc('2026-10-28')"></b> 辦理遺失補發（申請單 APP-20261028-012），舊證自動作廢。請客戶改用新證，或洽櫃檯協助。</div></div>
+                <button class="btn btn-soft btn-lg" @click="scn=newScn()">重新掃描</button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- 訪客登記 -->
+      <template x-if="scn.phase==='visit'">
+        <div class="zn-fade grid grid-cols-1 lg:grid-cols-12 gap-5" x-data="signPad('visitor')" @signed="scn.signed=$event.detail.value">
+          <div class="lg:col-span-5 space-y-4">
+            <div class="zn-card zn-card-pad">
+              <h2 class="zn-section-title mb-3">存放證資料</h2>
+              <dl class="zn-kv !grid-cols-[6rem_1fr]"><dt>往生者</dt><dd x-text="scn.asset.deceased.map(d=>d.name).join('、')"></dd><dt>位置</dt><dd x-text="ZN.posText(scn.asset.pos)"></dd></dl>
+            </div>
+            <div class="zn-card zn-card-pad space-y-4">
+              <h2 class="zn-section-title">訪客資料</h2>
+              <div><label class="zn-label"><span class="req">*</span>訪客姓名</label><input class="input input-lg w-full" x-model="scn.name"></div>
+              <div><label class="zn-label"><span class="req">*</span>與往生者關係</label>
+                <select class="select select-lg w-full" x-model="scn.relation"><option value="">請選擇</option><template x-for="r in relations" :key="r"><option :value="r" x-text="r"></option></template></select></div>
+              <div><label class="zn-label"><span class="req">*</span>訪客證件</label>
+                <div class="photo-slot p-3 flex items-center gap-3">
+                  <div class="relative" x-show="scn.photo"><img :src="scn.photo" class="h-20 rounded border" alt="">
+                    <div class="absolute inset-0 grid place-items-center text-[10px] font-extrabold text-slate-800/50 -rotate-12 pointer-events-none">慈恩園業務專用</div></div>
+                  <button class="btn btn-soft" @click="scn.photo=ZN.fakePhoto('訪客證件')"><i data-lucide="camera" class="w-5 h-5"></i><span x-text="scn.photo ? '重新拍攝' : '拍攝訪客證件'"></span></button>
+                </div></div>
+            </div>
+          </div>
+          <div class="lg:col-span-7 zn-card zn-card-pad space-y-4">
+            <div class="flex items-center justify-between"><h2 class="zn-section-title">訪客簽名</h2>
+              <button class="btn btn-ghost-gray" @click="clear()"><i data-lucide="eraser" class="w-5 h-5"></i>清除重簽</button></div>
+            <canvas class="zn-sign-pad h-[220px] sm:h-[300px]"></canvas>
+            <div class="flex gap-3">
+              <button class="btn btn-ghost-gray btn-lg" @click="scn.phase='valid'">上一步</button>
+              <button class="btn btn-primary btn-xl flex-1" :disabled="!(scn.signed && scn.name.trim() && scn.relation && scn.photo)" @click="createVisit()"><i data-lucide="clipboard-check" class="w-6 h-6"></i>建立到訪紀錄</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 完成 -->
+      <template x-if="scn.phase==='done'">
+        <section class="zn-fade zn-card zn-card-pad text-center !py-12 max-w-2xl mx-auto mt-6">
+          <div class="mx-auto w-28 h-28 rounded-full bg-green-100 text-green-600 grid place-items-center mb-5"><i data-lucide="circle-check-big" class="w-16 h-16"></i></div>
+          <h1 class="text-4xl font-extrabold">到訪紀錄已建立</h1>
+          <div class="mt-5 text-slate-500 text-lg">紀錄編號</div>
+          <div class="text-4xl font-extrabold tracking-wider" style="color:var(--zn-primary-deep)" x-text="scn.recNo"></div>
+          <dl class="zn-kv max-w-md mx-auto mt-6 text-left">
+            <dt>訪客</dt><dd x-text="scn.name + '（' + scn.relation + '）'"></dd>
+            <dt>往生者</dt><dd x-text="scn.asset.deceased.map(d=>d.name).join('、')"></dd>
+            <dt>到訪時間</dt><dd x-text="scn.at"></dd>
+          </dl>
+          <div class="flex justify-center gap-4 mt-8">
+            <button class="btn btn-soft btn-lg" @click="scn=newScn()">繼續掃描</button>
+            <button class="btn btn-primary btn-lg" @click="go('menu')"><i data-lucide="house" class="w-6 h-6"></i>回主選單</button>
+          </div>
+        </section>
+      </template>
+    </main>
+  </template>
+
+  <!-- ====================== 6. 會員帳號綁定 ====================== -->
+  <template x-if="view==='bind'">
+    <main class="zn-fade flex-1 max-w-6xl xl:max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-5">
+      <div class="zn-card px-4 sm:px-6 py-3 sm:py-4 overflow-x-auto" x-show="!bd.done">
+        <div class="zn-steps">
+          <template x-for="(s,i) in bindSteps" :key="i">
+            <div class="contents">
+              <div class="zn-step" :class="{'is-active': bd.step===i+1, 'is-done': bd.step>i+1}">
+                <span class="zn-step-dot"><span x-show="bd.step<=i+1" x-text="i+1"></span><span x-show="bd.step>i+1"><i data-lucide="check" class="w-5 h-5"></i></span></span>
+                <span :class="bd.step===i+1 ? '' : 'max-sm:hidden'" x-text="s"></span>
+              </div>
+              <div class="zn-step-line" x-show="i<bindSteps.length-1" :class="{'is-done': bd.step>i+1}"></div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 1 查詢系統客戶 -->
+      <template x-if="bd.step===1 && !bd.done">
+        <section class="zn-card zn-card-pad zn-fade space-y-4">
+          <h2 class="zn-section-title">輸入客戶身分證號</h2>
+          <div class="flex flex-col sm:flex-row gap-3"><input class="input input-lg flex-1 min-w-0 uppercase" x-model="bd.idq" @keydown.enter="bindFindCust()" placeholder="例：A123456789">
+            <button class="btn btn-primary btn-lg" @click="bindFindCust()"><i data-lucide="search" class="w-6 h-6"></i>查詢</button></div>
+          <div class="flex flex-wrap items-center gap-2"><span class="zn-hint !mt-0">示範資料：</span>
+            <template x-for="c in ZN.CUSTOMERS" :key="c.id"><button class="btn btn-soft btn-sm !min-h-[2.5rem]" @click="bd.idq=c.idNo; bindFindCust()" x-text="c.idNo"></button></template></div>
+          <div class="zn-note zn-note-error" x-show="bd.err"><i data-lucide="circle-alert" class="w-6 h-6 shrink-0"></i><div x-text="bd.err"></div></div>
+          <template x-if="bd.cust">
+            <div class="space-y-4 zn-fade">
+              <div class="rounded-xl bg-slate-50 p-5"><dl class="zn-kv">
+                <dt>姓名</dt><dd x-text="bd.cust.name"></dd><dt>身分證號</dt><dd x-text="ZN.maskId(bd.cust.idNo)"></dd>
+                <dt>聯絡電話</dt><dd x-text="bd.cust.phone"></dd><dt>電子郵件</dt><dd x-text="bd.cust.email"></dd>
+                <dt>客戶編號</dt><dd x-text="bd.cust.id"></dd></dl></div>
+              <div class="zn-note zn-note-warn !text-lg font-bold"><i data-lucide="triangle-alert" class="w-6 h-6 shrink-0"></i><div>請務必核對客戶本人之身份證正本</div></div>
+              <label class="zn-choice !items-center cursor-pointer" :class="{'is-on': bd.checked}"><input type="checkbox" class="checkbox checkbox-primary checkbox-lg" x-model="bd.checked"><span class="text-xl font-bold">已核對客戶本人身份證正本</span></label>
+            </div>
+          </template>
+          <div class="flex justify-end pt-2"><button class="btn btn-primary btn-lg" :disabled="!(bd.cust && bd.checked)" @click="bd.step=2">下一步<i data-lucide="arrow-right" class="w-6 h-6"></i></button></div>
+        </section>
+      </template>
+
+      <!-- 2 查詢線上帳號 -->
+      <template x-if="bd.step===2 && !bd.done">
+        <section class="zn-card zn-card-pad zn-fade space-y-4">
+          <h2 class="zn-section-title">輸入客戶的線上帳號</h2>
+          <p class="zn-hint">可輸入手機號碼、Email 或 LINE User ID（帳號狀態須為「待綁定」）</p>
+          <div class="flex flex-col sm:flex-row gap-3"><input class="input input-lg flex-1 min-w-0" x-model="bd.memq" @keydown.enter="bindFindMember()" placeholder="手機／Email／LINE User ID">
+            <button class="btn btn-primary btn-lg" @click="bindFindMember()"><i data-lucide="search" class="w-6 h-6"></i>查詢帳號</button></div>
+          <div class="flex flex-wrap items-center gap-2"><span class="zn-hint !mt-0">示範資料：</span>
+            <template x-for="m in ZN.MEMBERS" :key="m.id"><button class="btn btn-soft btn-sm !min-h-[2.5rem] max-w-full h-auto break-all" @click="bd.memq=m.login; bindFindMember()"><span x-text="m.login"></span><span class="font-normal opacity-70" x-text="'（'+m.status+'）'"></span></button></template></div>
+          <div class="zn-note zn-note-error" x-show="bd.err"><i data-lucide="circle-alert" class="w-6 h-6 shrink-0"></i><div x-text="bd.err"></div></div>
+          <template x-if="bd.mem">
+            <div class="rounded-xl bg-slate-50 p-5 zn-fade"><dl class="zn-kv">
+              <dt>會員編號</dt><dd x-text="bd.mem.id"></dd><dt>登入方式</dt><dd x-text="bd.mem.via"></dd>
+              <dt>登入帳號</dt><dd x-text="bd.mem.login"></dd><dt>狀態</dt><dd><span :class="ZN.badge(bd.mem.status)" x-text="bd.mem.status"></span></dd></dl></div>
+          </template>
+          <div class="flex justify-between pt-2">
+            <button class="btn btn-ghost-gray btn-lg" @click="bd.step=1; bd.err=''">上一步</button>
+            <button class="btn btn-primary btn-lg" :disabled="!bd.mem" @click="bd.step=3">下一步<i data-lucide="arrow-right" class="w-6 h-6"></i></button>
+          </div>
+        </section>
+      </template>
+
+      <!-- 3 並列比對 -->
+      <template x-if="bd.step===3 && !bd.done">
+        <section class="zn-fade space-y-5">
+          <div class="zn-note zn-note-info"><i data-lucide="info" class="w-6 h-6 shrink-0"></i><div>請確認左右兩邊為同一人，確認後按「完成綁定」。</div></div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="zn-card zn-card-pad"><h2 class="zn-section-title mb-4">系統客戶</h2>
+              <dl class="zn-kv !grid-cols-[6rem_1fr]"><dt>姓名</dt><dd x-text="bd.cust.name"></dd><dt>身分證號</dt><dd x-text="ZN.maskId(bd.cust.idNo)"></dd><dt>電話</dt><dd x-text="bd.cust.phone"></dd><dt>Email</dt><dd x-text="bd.cust.email"></dd><dt>客戶編號</dt><dd x-text="bd.cust.id"></dd></dl></div>
+            <div class="zn-card zn-card-pad"><h2 class="zn-section-title mb-4">線上帳號</h2>
+              <dl class="zn-kv !grid-cols-[6rem_1fr]"><dt>會員編號</dt><dd x-text="bd.mem.id"></dd><dt>登入方式</dt><dd x-text="bd.mem.via"></dd><dt>登入帳號</dt><dd x-text="bd.mem.login"></dd><dt>LINE 名稱</dt><dd x-text="bd.mem.lineName || '-'"></dd><dt>狀態</dt><dd><span :class="ZN.badge(bd.mem.status)" x-text="bd.mem.status"></span></dd></dl></div>
+          </div>
+          <div class="flex flex-wrap gap-3 justify-between">
+            <button class="btn btn-ghost-gray btn-lg" @click="bd.step=2">上一步</button>
+            <button class="btn btn-primary btn-xl" @click="askConfirm({title:'完成綁定',msg:'確定將此線上帳號綁定到該客戶？綁定後系統會發送通知。',ok:'完成綁定',fn:()=>doBind()})"><i data-lucide="link" class="w-6 h-6"></i>完成綁定</button>
+          </div>
+        </section>
+      </template>
+
+      <!-- 完成 -->
+      <template x-if="bd.done">
+        <section class="zn-fade zn-card zn-card-pad text-center !py-12 max-w-2xl mx-auto mt-6">
+          <div class="mx-auto w-28 h-28 rounded-full bg-green-100 text-green-600 grid place-items-center mb-5"><i data-lucide="circle-check-big" class="w-16 h-16"></i></div>
+          <h1 class="text-4xl font-extrabold">綁定完成</h1>
+          <div class="mt-4"><span :class="ZN.badge('已啟用')" class="!text-lg !px-5">已啟用</span></div>
+          <p class="mt-4 text-lg text-slate-600"><b x-text="bd.cust.name"></b> 已與線上帳號 <b x-text="bd.mem.login"></b> 綁定</p>
+          <div class="flex justify-center gap-4 mt-8">
+            <button class="btn btn-soft btn-lg" @click="startBind()">再綁定一位</button>
+            <button class="btn btn-primary btn-lg" @click="go('menu')"><i data-lucide="house" class="w-6 h-6"></i>回主選單</button>
+          </div>
+        </section>
+      </template>
+    </main>
+  </template>
+
+</div>
+
+<script>
+/* ==========================================================
+   iPad 前台服務平台：單一 Alpine 根元件，以 view 狀態機切換畫面
+   view：login → menu → apply | receive | scan | bind
+   ========================================================== */
+const newAp = () => ({
+  step: 1, done: false, tab: 'id', q: '', err: '', busy: false,
+  cust: null, byCert: null, sealPic: null, sealMatched: false,
+  selAssets: [], chains: {}, custItems: [], sealPhoto: null, batch: { open: false, chain: [] },
+  form: {}, photos: {}, openSec: {}, showErr: false,
+  agree: false, signed: false, custMode: false,
+  appNo: '', submittedAt: '', paid: 0,
+});
+const newRcv = () => ({ q: '', sel: null, who: 'self', agentName: '', agentPhoto: null, signed: false });
+const newScn = () => ({ phase: 'idle', asset: null, name: '', relation: '', photo: null, signed: false, recNo: '', at: '' });
+const newBd = () => ({ step: 1, idq: '', cust: null, checked: false, memq: '', mem: null, err: '', done: false });
+const pad2 = n => String(n).padStart(2, '0');
+const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+
+function app() {
+  return {
+    /* ---------- 狀態 ---------- */
+    view: 'login', user: '櫃檯 張美玲', apps: [], notice: '', appSeq: 4,
+    steps: ['客戶識別', '選擇資產與手續', '印鑑比對', '填寫資料', '費用確認', '確認簽名'],
+    bindSteps: ['查詢系統客戶', '查詢線上帳號', '並列比對'],
+    personFields: ['受讓人', '繼承人', '新執行人', '新使用人'],
+    relations: ['配偶', '父母', '子女', '兄弟姐妹', '祖父母', '孫子女', '其他親屬', '其他'],
+    hours: ['子時', '丑時', '寅時', '卯時', '辰時', '巳時', '午時', '未時', '申時', '酉時', '戌時', '亥時'],
+    decDates: [{ k: 'birth', label: '出生日期', req: false }, { k: 'death', label: '死亡日期', req: true }, { k: 'enshrine', label: '預定晉塔日期', req: false }],
+    hints: [{ v: 'A123456789', t: '身分證' }, { v: 'VIP1140803', t: '權狀' }, { v: 'F223344556', t: '身分證' }],
+    ap: newAp(), rcv: newRcv(), scn: newScn(), bd: newBd(),
+    cf: { open: false, title: '', msg: '', ok: '確定', danger: false, fn: null },
+    zoom: { open: false, src: '', title: '' },
+
+    /* ---------- 初始化 ---------- */
+    init() {
+      this.apps = ZN.APPLICATIONS;
+      // 畫面變動後重畫 Lucide 圖示（圖示只用靜態名稱）
+      let t = null;
+      new MutationObserver(() => {
+        clearTimeout(t);
+        t = setTimeout(() => window.lucide && lucide.createIcons(), 30);
+      }).observe(this.$root, { childList: true, subtree: true });
+      this.$nextTick(() => window.lucide && lucide.createIcons());
+      this.$watch('view', () => this.$nextTick(() => window.lucide && lucide.createIcons()));
+    },
+
+    /* ---------- 共用 ---------- */
+    toast(msg, type = 'success') { Alpine.store('toast').show(msg, type); },
+    askConfirm(o) { this.cf = { open: true, title: o.title, msg: o.msg, ok: o.ok || '確定', danger: !!o.danger, fn: o.fn || null }; },
+    cfOk() { const fn = this.cf.fn; this.cf.open = false; if (fn) fn(); },
+    openZoom(src, title) { this.zoom = { open: true, src, title }; },
+    greeting() { const h = new Date().getHours(); return h < 11 ? '早安' : h < 18 ? '午安' : '晚安'; },
+    pageTitle() { return { menu: '主選單', apply: '異動申請', receive: '資料領取與簽收', scan: '存放證掃描', bind: '會員帳號綁定' }[this.view] || ''; },
+    go(v) { this.view = v; window.scrollTo(0, 0); },
+    resetAll() { this.ap = newAp(); this.rcv = newRcv(); this.scn = newScn(); this.bd = newBd(); },
+    login() { this.go('menu'); },
+    backToMenu() {
+      if (this.view === 'apply' && !this.ap.done && this.ap.cust) return this.cancelApply();
+      this.go('menu');
+    },
+    unsignedCount() { return this.apps.filter(a => a.sign === '未簽收').length; },
+    usageBadge(u) { return u === '已使用' ? 'zn-badge-green' : u === '未使用' ? 'zn-badge-gray' : 'zn-badge-yellow'; },
+    bad(v) { return this.ap.showErr && !v; },
+    isIdDoc(doc) { return doc.includes('身分證'); },
+    watermark() { const s = '慈恩園業務專用 ' + ZN.roc(new Date()); return [s, s, s].join('\n'); },
+
+    /* ====================================================
+       3. 異動申請
+       ==================================================== */
+    startApply() { this.ap = newAp(); this.go('apply'); },
+    cancelApply() {
+      this.askConfirm({ title: '取消申請', msg: '確定要取消本次申請嗎？已填寫的內容將不會保存。', ok: '確定取消', danger: true,
+        fn: () => { this.leaveApply(); this.toast('已取消申請'); } });
+    },
+    /* 只離開畫面不清狀態（startApply 會重建），避免拆除中的舊畫面讀到 null 客戶 */
+    leaveApply() { this.go('menu'); },
+    terminate() {
+      this.leaveApply();
+      this.notice = '印鑑比對不符，無法繼續辦理';
+      this.toast('印鑑比對不符，無法繼續辦理', 'error');
+    },
+    finishApply() { this.leaveApply(); },
+
+    /* ① 客戶識別 */
+    setTab(t) { this.ap.tab = t; this.ap.q = ''; this.ap.err = ''; },
+    fillHint(v) { this.ap.tab = /^[A-Z]\d{9}$/.test(v) ? 'id' : 'cert'; this.ap.q = v; this.identify(); },
+    setCust(c, cert) {
+      Object.assign(this.ap, { cust: c, byCert: cert, selAssets: cert ? [cert] : [], chains: cert ? { [cert]: [] } : {}, custItems: [], form: {}, photos: {}, sealPhoto: null, err: '' });
+    },
+    resetCust() {
+      Object.assign(this.ap, { cust: null, byCert: null, selAssets: [], chains: {}, custItems: [], sealPic: null, sealMatched: false, err: '', q: '' });
+    },
+    identify() {
+      const q = this.ap.q.trim().toUpperCase();
+      this.ap.err = '';
+      if (!q) { this.ap.err = '請輸入' + (this.ap.tab === 'id' ? '身分證字號' : '權狀號碼'); return; }
+      if (this.ap.tab === 'id') {
+        const c = ZN.CUSTOMERS.find(x => x.idNo === q);
+        if (c) this.setCust(c, null); else { this.ap.cust = null; this.ap.err = '查無符合條件的資料，請確認身分證字號是否正確'; }
+      } else {
+        const a = ZN.ASSETS.find(x => x.certNo.toUpperCase() === q);
+        if (a) this.setCust(ZN.customerOf(a.owner), a.certNo); else { this.ap.cust = null; this.ap.err = '查無符合條件的資料，請確認權狀號碼是否正確'; }
+      }
+    },
+    scanSealCard() {
+      this.ap.busy = true; this.ap.sealPic = ZN.fakePhoto('印鑑卡'); this.ap.sealMatched = false;
+      setTimeout(() => { this.ap.busy = false; this.ap.sealMatched = true; this.setCust(ZN.CUSTOMERS[1], null); }, 900);
+    },
+
+    /* ② 資產與手續：每張權狀一條「辦理順序鏈」（同後台 5.3.1：排在前面者先辦理，只能從尾端新增／刪除，中間可原地更換） */
+    item(code) { return ZN.APPLY_ITEMS.find(i => i.code === code); },
+    assetList() {
+      if (!this.ap.cust) return [];
+      return this.ap.byCert ? [ZN.assetByCert(this.ap.byCert)] : ZN.assetsOf(this.ap.cust.id);
+    },
+    chosenAssets() { return this.assetList().filter(a => this.ap.selAssets.includes(a.certNo)); },
+    chainOf(no) { return this.ap.chains[no] || []; },
+    seqMark(n) { return '①②③④⑤⑥⑦⑧⑨⑩'[n - 1] || n; },
+    chainText(no) { return this.chainOf(no).map((n, i) => this.seqMark(i + 1) + this.item(n.code).name).join(' → '); },
+    toggleAsset(a) {
+      if (a.lockedBy) { this.toast('此位置目前已被鎖定，無法建立申請單（' + a.lockedBy + '）', 'error'); return; }
+      const no = a.certNo, i = this.ap.selAssets.indexOf(no);
+      if (i >= 0) { this.ap.selAssets.splice(i, 1); delete this.ap.chains[no]; }
+      else { this.ap.selAssets.push(no); this.ap.chains[no] = []; }
+    },
+    /* 權狀可選項目（不含客戶層級） */
+    chainItems(type) { return ZN.itemsFor(type).filter(it => !ZN.ITEM_RULES.custLevel.includes(it.code)); },
+    /* 第 idx 格放 code 是否可行；回傳不可選原因 */
+    slotBlock(a, chain, idx, code) {
+      const it = this.item(code), R = ZN.ITEM_RULES.notAfter;
+      if (chain.some((n, j) => j !== idx && n.code === code)) return '已在順序中';
+      const before = chain.slice(0, idx).map(n => n.code), after = chain.slice(idx + 1).map(n => n.code);
+      const hit = (R[code] || []).find(c => before.includes(c));
+      if (hit) return `前面已有「${this.item(hit).name}」`;
+      const hit2 = after.find(c => (R[c] || []).includes(code));
+      if (hit2) return `後面的「${this.item(hit2).name}」不可接在此項之後`;
+      if (a && it.needUsed && a.usage !== '已使用') return `需已使用（目前${a.usage}）`;
+      return '';
+    },
+    slotOptions(a, idx) {
+      const chain = this.chainOf(a.certNo);
+      const ch = idx < chain.length ? chain : chain.concat({ code: '' });
+      return this.chainItems(a.type).map(it => ({ code: it.code, name: it.name, why: this.slotBlock(a, ch, idx, it.code) }));
+    },
+    applyAutos(a, chain) {
+      const A = ZN.ITEM_RULES.autoAfter, B = ZN.ITEM_RULES.autoBefore;
+      const ci = chain.findIndex(n => n.code === B.trigger);
+      if (ci >= 0 && !chain.some(n => n.code === B.add) && this.chainItems(a.type).some(i => i.code === B.add)) chain.splice(ci, 0, { code: B.add, auto: true });
+      if (a.type === '塔位' && a.usage === '已使用' && !chain.some(n => n.code === A.add)) {
+        const ti = chain.map(n => A.trigger.includes(n.code)).lastIndexOf(true);
+        if (ti >= 0) chain.splice(ti + 1, 0, { code: A.add, auto: true });
+      }
+      return chain;
+    },
+    addTail(a, code) {
+      if (!code) return;
+      const chain = this.chainOf(a.certNo).slice();
+      const why = this.slotBlock(a, chain.concat({ code }), chain.length, code);
+      if (why) { this.toast(why, 'error'); return; }
+      chain.push({ code, auto: false });
+      this.ap.chains[a.certNo] = this.applyAutos(a, chain);
+    },
+    changeAt(a, idx, code) {
+      const chain = this.chainOf(a.certNo).slice(), old = chain[idx].code;
+      if (code === old) return;
+      const why = this.slotBlock(a, chain, idx, code);
+      if (why) { this.toast(why, 'error'); this.ap.chains[a.certNo] = chain; return; }
+      chain[idx] = { code, auto: false };
+      if (old === ZN.ITEM_RULES.autoBefore.trigger) { const g = chain.findIndex(n => n.code === ZN.ITEM_RULES.autoBefore.add && n.auto); if (g >= 0) chain.splice(g, 1); }
+      this.ap.chains[a.certNo] = this.applyAutos(a, chain);
+    },
+    removeTail(a) {
+      const chain = this.chainOf(a.certNo).slice(), last = chain.pop();
+      const B = ZN.ITEM_RULES.autoBefore, prev = chain[chain.length - 1];
+      if (last && last.code === B.trigger && prev && prev.code === B.add && prev.auto) chain.pop();
+      this.ap.chains[a.certNo] = chain;
+    },
+    /* 批次異動：同一條順序套用到所有勾選權狀 */
+    batchOptions(idx) {
+      const types = [...new Set(this.chosenAssets().map(a => a.type))], ch = this.ap.batch.chain;
+      const c2 = idx < ch.length ? ch : ch.concat({ code: '' });
+      return ZN.APPLY_ITEMS.filter(it => !ZN.ITEM_RULES.custLevel.includes(it.code) && types.every(t => this.chainItems(t).includes(it)))
+        .map(it => ({ code: it.code, name: it.name, why: this.slotBlock(null, c2, idx, it.code) }));
+    },
+    openBatch() { this.ap.batch = { open: true, chain: [] }; },
+    batchAdd(code) {
+      const o = this.batchOptions(this.ap.batch.chain.length).find(x => x.code === code);
+      if (!o || o.why) return;
+      this.ap.batch.chain.push({ code, auto: false });
+    },
+    applyBatch() {
+      const skipped = [];
+      this.chosenAssets().forEach(a => {
+        const ch = this.ap.batch.chain.filter(n => {
+          const ok = this.chainItems(a.type).some(i => i.code === n.code) && !(this.item(n.code).needUsed && a.usage !== '已使用');
+          if (!ok) skipped.push(a.certNo + ' ' + this.item(n.code).name);
+          return ok;
+        }).map(n => ({ ...n }));
+        this.ap.chains[a.certNo] = this.applyAutos(a, ch);
+      });
+      this.ap.batch.open = false;
+      this.toast(skipped.length ? '已套用；未使用的位置略過：' + skipped.join('、') : '已套用至 ' + this.ap.selAssets.length + ' 張權狀');
+    },
+    /* 客戶層級異動 */
+    custLevelItems() { return ZN.ITEM_RULES.custLevel.map(c => this.item(c)); },
+    validCertCount() { return ZN.assetsOf(this.ap.cust.id).filter(a => a.usage !== '遷出').length; },
+    custBlock(it) {
+      if (!this.validCertCount()) return '名下無有效權狀';
+      const ex = ZN.ITEM_RULES.custExclusive.find(g => g.includes(it.code));
+      const other = ex && ex.find(c => c !== it.code && this.ap.custItems.includes(c));
+      return other ? `與「${this.item(other).name}」不可同時辦理` : '';
+    },
+    toggleCust(it) {
+      const i = this.ap.custItems.indexOf(it.code);
+      if (i >= 0) { this.ap.custItems.splice(i, 1); return; }
+      const b = this.custBlock(it); if (b) { this.toast(b, 'error'); return; }
+      this.ap.custItems.push(it.code);
+    },
+    emptyChains() { return this.ap.selAssets.filter(no => !this.chainOf(no).length); },
+    /* 後續步驟用：依「權狀 → 順序」展開的辦理清單；客戶層級排最後 */
+    sections() {
+      const out = [];
+      this.chosenAssets().forEach(a => this.chainOf(a.certNo).forEach((n, i) =>
+        out.push({ key: a.certNo + '|' + n.code, cert: a.certNo, asset: a, seq: i + 1, auto: n.auto, it: this.item(n.code) })));
+      this.ap.custItems.forEach(c => out.push({ key: 'CUST|' + c, cert: null, asset: null, seq: 0, auto: false, it: this.item(c) }));
+      return out;
+    },
+    selectedItems() { const seen = new Set(); return this.sections().map(x => x.it).filter(it => !seen.has(it.code) && seen.add(it.code)); },
+    hasSplit() { return this.sections().some(x => ['A01', 'A02'].includes(x.it.code)); },
+
+    /* ③ 印鑑 */
+    takeSealPhoto() { this.ap.sealPhoto = ZN.fakeSeal(this.ap.cust.seal); },
+
+    /* ④ 填寫資料 */
+    initForms() {
+      const mk = () => ({ name: '', idNo: '', phone: '', addr: '', relation: '' });
+      const dt = () => ({ y: '', m: '', d: '' });
+      this.sections().forEach(sec => {
+        const it = sec.it;
+        if (this.ap.form[sec.key]) return;
+        const f = {};
+        (it.fields || []).forEach(fld => {
+          if (this.personFields.includes(fld)) f[fld] = mk();
+          else if (fld === '新位置') f.newPos = '';
+          else if (fld === '換裝方式') f.refit = '';
+          else if (fld === '往生者') f.dec = { name: '', birth: dt(), death: dt(), enshrine: dt(), hour: '' };
+          else if (fld === '新姓名') f.newName = '';
+          else if (fld === '牌位內容') f.tablet = '';
+          else if (fld === '新名條內容') f.plate = '';
+        });
+        this.ap.form[sec.key] = f;
+        this.ap.openSec[sec.key] = true;
+      });
+    },
+    shoot(key, label) { this.ap.photos[key] = ZN.fakePhoto(label); },
+    /* 同一手續、前面權狀已填 → 可一鍵帶入 */
+    prevSame(sec) {
+      const all = this.sections(), at = all.findIndex(y => y.key === sec.key);
+      return all.slice(0, at).reverse().find(x => x.cert && x.it.code === sec.it.code);
+    },
+    copyFrom(sec) {
+      const p = this.prevSame(sec); if (!p) return;
+      this.ap.form[sec.key] = JSON.parse(JSON.stringify(this.ap.form[p.key]));
+      (sec.it.docs || []).forEach(d => { if (this.ap.photos[p.key + '|' + d]) this.ap.photos[sec.key + '|' + d] = this.ap.photos[p.key + '|' + d]; });
+      if (this.ap.photos['seal|' + p.key]) this.ap.photos['seal|' + sec.key] = this.ap.photos['seal|' + p.key];
+      this.ap.openSec[sec.key] = false; this.$nextTick(() => { this.ap.openSec[sec.key] = true; });
+      this.toast('已帶入 ' + p.cert + ' 的資料');
+    },
+    itemErrors(sec) {
+      const it = sec.it, e = [], f = this.ap.form[sec.key]; if (!f) return e;
+      (it.fields || []).forEach(fld => {
+        if (this.personFields.includes(fld)) {
+          const p = f[fld];
+          if (!p.name) e.push(`${fld}姓名`); if (!p.idNo) e.push(`${fld}身分證號`);
+          if (!p.phone) e.push(`${fld}電話`); if (!p.relation) e.push(`${fld}關係`);
+        } else if (fld === '新位置' && !f.newPos) e.push('新位置');
+        else if (fld === '換裝方式' && !f.refit) e.push('換裝方式');
+        else if (fld === '往生者') {
+          if (!f.dec.name) e.push('往生者姓名');
+          const d = f.dec.death; if (!d.y || !d.m || !d.d) e.push('死亡日期');
+        } else if (fld === '新姓名' && !f.newName) e.push('新姓名');
+        else if (fld === '新印鑑' && !this.ap.photos['seal|' + sec.key]) e.push('新印鑑照片');
+        else if (fld === '牌位內容' && !f.tablet) e.push('牌位內容');
+        else if (fld === '新名條內容' && !f.plate) e.push('新名條內容');
+      });
+      (it.docs || []).forEach(d => { if (!this.ap.photos[sec.key + '|' + d]) e.push(d); });
+      return e;
+    },
+    secLabel(sec) { return sec.cert ? `${sec.cert} ${this.seqMark(sec.seq)}${sec.it.name}` : `客戶資料 ${sec.it.name}`; },
+    step4Errors() { return this.sections().flatMap(sec => this.itemErrors(sec).map(m => this.secLabel(sec) + '：' + m)); },
+    rocStr(o) { return o && o.y ? `民國 ${o.y} 年 ${o.m} 月 ${o.d} 日` : '—'; },
+
+    /* ⑤ 費用 */
+    feeRows() {
+      const rows = [], inh = {};
+      this.sections().forEach(sec => {
+        const it = sec.it, a = sec.asset;
+        const row = { cert: sec.cert || '客戶資料', seq: sec.seq ? this.seqMark(sec.seq) : '—', name: it.name, auto: sec.auto, rule: it.feeRule, amt: it.fee };
+        if (it.code === 'A02') {
+          /* 繼承：依「繼承人 × 被繼承人」分組，每 5 張一級距，金額記在該組第一筆，其餘 0 */
+          const heir = ((this.ap.form[sec.key] || {})['繼承人'] || {}).name || '（未填繼承人）';
+          const g = inh[heir] || (inh[heir] = { n: 0, first: row });
+          g.n++; row.amt = 0; row.rule = `併入「${heir}」組第一筆計算`;
+        } else if (it.code === 'B03') {
+          const n = this.validCertCount(), g = Math.ceil(n / 10);
+          row.amt = it.fee * g; row.rule = `名下有效權狀 ${n} 張，每 10 張 ${ZN.money(it.fee)} × ${g}`;
+        } else if (it.key === 'tablet_engrave') {
+          const sp = /^(A11|B3R|B6)/.test(a.pos || '');
+          row.amt = sp ? 1000 : 2000; row.rule = sp ? '特定區域（A11/B3R/B6）1,000 元' : '一般區域 2,000 元';
+        }
+        rows.push(row);
+      });
+      Object.entries(inh).forEach(([heir, g]) => { const k = Math.ceil(g.n / 5); g.first.amt = 1000 * k; g.first.rule = `繼承人「${heir}」共 ${g.n} 張，每 5 張 1,000 元 × ${k}`; });
+      return rows;
+    },
+    total() { return this.feeRows().reduce((s, r) => s + r.amt, 0); },
+
+    /* ⑥ 摘要 */
+    summaryLines(sec) {
+      const it = sec.it, f = this.ap.form[sec.key] || {}, L = [];
+      (it.fields || []).forEach(fld => {
+        if (this.personFields.includes(fld)) { const p = f[fld]; L.push(`${fld}：${p.name}（${p.relation}）　身分證 ${ZN.maskId(p.idNo)}　電話 ${p.phone}${p.addr ? '　地址 ' + p.addr : ''}`); }
+        else if (fld === '被繼承人') L.push(`被繼承人：${this.ap.cust.name}（目前持有人）`);
+        else if (fld === '新位置') L.push('新位置：' + f.newPos);
+        else if (fld === '換裝方式') L.push('換裝方式：' + f.refit);
+        else if (fld === '往生者') L.push(`往生者：${f.dec.name}　死亡 ${this.rocStr(f.dec.death)}　預定晉塔 ${this.rocStr(f.dec.enshrine)} ${f.dec.hour}`);
+        else if (fld === '新姓名') L.push('新姓名：' + f.newName);
+        else if (fld === '新印鑑') L.push('新印鑑：已拍攝');
+        else if (fld === '牌位內容') L.push('牌位內容：' + f.tablet);
+        else if (fld === '新名條內容') L.push('新名條內容：' + f.plate);
+      });
+      if ((it.docs || []).length) L.push(`已附文件：${it.docs.join('、')}`);
+      if (!L.length) L.push('無需額外填寫資料');
+      return L;
+    },
+    enterCust() { this.ap.custMode = true; this.ap.agree = false; this.ap.signed = false; window.scrollTo(0, 0); },
+    exitCust() { this.ap.custMode = false; this.ap.agree = false; this.ap.signed = false; },
+
+    /* 步驟流程 */
+    canNext() {
+      if (this.ap.step === 1) return !!this.ap.cust;
+      if (this.ap.step === 2) return this.sections().length > 0 && this.emptyChains().length === 0;
+      return true;
+    },
+    prev() { if (this.ap.step > 1) { this.ap.step--; window.scrollTo(0, 0); } },
+    next() {
+      if (!this.canNext()) return;
+      if (this.ap.step === 3 && !this.ap.sealPhoto) return;
+      if (this.ap.step === 4) {
+        if (this.step4Errors().length) { this.ap.showErr = true; this.toast('請先完成必填資料（紅色標示）', 'error'); window.scrollTo(0, 0); return; }
+      }
+      const to = this.ap.step + 1;
+      if (to === 4) this.initForms();
+      this.ap.step = to; window.scrollTo(0, 0);
+    },
+    submitApply() {
+      if (!(this.ap.signed && this.ap.agree)) return;
+      this.appSeq++;
+      const no = 'APP-' + todayISO().replace(/-/g, '') + '-0' + pad2(this.appSeq);
+      const items = this.selectedItems();
+      this.ap.appNo = no; this.ap.paid = this.total();
+      this.ap.submittedAt = ZN.roc(new Date()) + ' ' + pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes());
+      this.apps.push({ no, owner: this.ap.cust.id, date: todayISO(), items: items.map(i => i.name), certs: [...this.ap.selAssets], chains: JSON.parse(JSON.stringify(this.ap.chains)), custItems: [...this.ap.custItems], status: '待會計審核', sign: '免簽收', fee: this.ap.paid });
+      this.ap.custMode = false; this.ap.done = true; window.scrollTo(0, 0);
+    },
+
+    /* ====================================================
+       4. 資料領取與簽收
+       ==================================================== */
+    startReceive() { this.rcv = newRcv(); this.go('receive'); },
+    receiveList() {
+      const q = this.rcv.q.trim().toLowerCase();
+      return this.apps.filter(a => {
+        if (!q) return true;
+        const c = ZN.customerOf(a.owner);
+        return a.no.toLowerCase().includes(q) || (c && (c.name.includes(q) || c.idNo.toLowerCase().includes(q)));
+      });
+    },
+    signBadge(a) { return a.sign === '已簽收' ? ZN.badge('已簽收') : a.sign === '未簽收' ? 'zn-badge zn-badge-orange' : 'zn-badge zn-badge-gray'; },
+    selectApp(a) {
+      this.rcv.sel = null; this.rcv.who = 'self'; this.rcv.agentName = ''; this.rcv.agentPhoto = null; this.rcv.signed = false;
+      this.$nextTick(() => { this.rcv.sel = a; });
+    },
+    canReceive() {
+      const r = this.rcv;
+      return r.signed && (r.who === 'self' || (r.agentName.trim() && r.agentPhoto));
+    },
+    doReceive() {
+      const a = this.rcv.sel;
+      a.sign = '已簽收'; a.signedAt = todayISO();
+      this.toast('已完成簽收：' + a.no);
+      this.selectApp(a);
+    },
+
+    /* ====================================================
+       5. 存放證掃描
+       ==================================================== */
+    startScan() { this.scn = newScn(); this.go('scan'); },
+    simScan(valid) {
+      this.scn.phase = 'scanning';
+      setTimeout(() => {
+        if (valid) { this.scn.asset = ZN.assetByCert('VIP1140803'); this.scn.phase = 'valid'; }
+        else this.scn.phase = 'invalid';
+      }, 1000);
+    },
+    createVisit() {
+      const d = new Date();
+      this.scn.recNo = 'VST-20261103-0' + pad2(10 + Math.floor(Math.random() * 80));
+      this.scn.at = ZN.roc(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+      this.scn.phase = 'done';
+      this.toast('已建立到訪紀錄');
+    },
+
+    /* ====================================================
+       6. 會員帳號綁定
+       ==================================================== */
+    startBind() { this.bd = newBd(); this.go('bind'); },
+    bindFindCust() {
+      const q = this.bd.idq.trim().toUpperCase(); this.bd.err = ''; this.bd.checked = false;
+      const c = ZN.CUSTOMERS.find(x => x.idNo === q);
+      if (c) this.bd.cust = c; else { this.bd.cust = null; this.bd.err = '查無符合條件的資料，請確認身分證字號'; }
+    },
+    bindFindMember() {
+      const q = this.bd.memq.trim().toLowerCase(); this.bd.err = ''; this.bd.mem = null;
+      if (!q) { this.bd.err = '請輸入手機、Email 或 LINE User ID'; return; }
+      const m = ZN.MEMBERS.find(x => x.login.toLowerCase() === q || (x.login.toLowerCase().replace('...', '') && q.startsWith(x.login.toLowerCase().replace('...', '')) && x.via === 'LINE'));
+      if (!m) { this.bd.err = '查無符合條件的資料，請確認線上帳號'; return; }
+      if (m.status !== '待綁定') { this.bd.err = `此帳號狀態為「${m.status}」，已完成綁定，無法重複綁定。`; return; }
+      this.bd.mem = m;
+    },
+    doBind() {
+      this.bd.mem.status = '已啟用'; this.bd.mem.customer = this.bd.cust.id;
+      if (this.bd.mem.via === 'LINE') this.bd.cust.lineBound = true;
+      this.bd.done = true;
+      this.toast('已發送綁定成功通知（LINE/簡訊/Email）');
+    },
+  };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>慈恩園 前台雛形</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/theme.css">
+  <link rel="icon" href="assets/img/favicon.ico">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <!-- 頁首 -->
+  <header class="relative overflow-hidden">
+    <img src="assets/img/hero.jpg" alt="" class="absolute inset-0 w-full h-full object-cover">
+    <div class="absolute inset-0" style="background:linear-gradient(90deg,rgba(15,40,60,.85),rgba(15,40,60,.35))"></div>
+    <div class="relative max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-white">
+      <div class="zn-brand text-white"><span class="zn-brand-mark">慈</span>慈恩園</div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold mt-6 tracking-wide">前台服務雛形</h1>
+      <p class="mt-3 text-lg text-white/85">沿用後台色系，依一般民眾操作習慣設計：字大、鍵大、一頁一件事、白話說明。</p>
+      <p class="mt-1 text-sm text-white/60">v0.2 · 民國 115 年 11 月 4 日 · 模擬資料，無後端</p>
+    </div>
+  </header>
+
+  <!-- 四套雛形 -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <a href="ipad/index.html" class="zn-tile">
+        <div class="zn-tile-icon"><i data-lucide="tablet"></i></div>
+        <div class="zn-tile-title">iPad 前台服務平台</div>
+        <div class="zn-tile-desc">櫃檯人員操作、客戶確認簽名。異動申請可選多張權狀、每張各自設定辦理順序（客戶識別 → 選資產與順序 → 印鑑比對 → 填寫 → 費用 → 電子簽名）、資料領取簽收、存放證掃描、會員臨櫃綁定。</div>
+        <div class="flex gap-2 flex-wrap"><span class="zn-badge zn-badge-blue">iPad 橫向 · RWD</span><span class="zn-badge zn-badge-gray">新功能規劃 1.0–8.0</span></div>
+      </a>
+      <a href="member/index.html" class="zn-tile">
+        <div class="zn-tile-icon"><i data-lucide="user-round"></i></div>
+        <div class="zn-tile-title">客戶會員專區</div>
+        <div class="zn-tile-desc">手機／LINE 開啟。註冊與綁定、我的位置（資產總覽）、數位存放證 QR、管理費繳費與回報、個人資料。</div>
+        <div class="flex gap-2 flex-wrap"><span class="zn-badge zn-badge-blue">手機優先</span><span class="zn-badge zn-badge-gray">新功能規劃 9.0–13.0</span></div>
+      </a>
+      <a href="ceremony/index.html" class="zn-tile">
+        <div class="zn-tile-icon" style="background:var(--zn-gold-soft);color:var(--zn-gold)"><i data-lucide="flower-2"></i></div>
+        <div class="zn-tile-title">法會報名</div>
+        <div class="zn-tile-desc">法會資訊、線上報名（牌位預覽）、轉帳繳費、報名查詢與繳費回報；管理端報名清單與對帳。</div>
+        <div class="flex gap-2 flex-wrap"><span class="zn-badge zn-badge-gold">民眾 + 管理者</span><span class="zn-badge zn-badge-gray">法會查詢</span></div>
+      </a>
+      <a href="locate/index.html" class="zn-tile">
+        <div class="zn-tile-icon"><i data-lucide="map-pinned"></i></div>
+        <div class="zn-tile-title">往生者位置查詢</div>
+        <div class="zn-tile-desc">公家單位／現場 QR 進入。輸入往生者姓名 + 持有人姓名或往生日期，回傳白話位置說明、樓層示意與前往方式。</div>
+        <div class="flex gap-2 flex-wrap"><span class="zn-badge zn-badge-blue">手機優先</span><span class="zn-badge zn-badge-gray">客戶查詢位置</span></div>
+      </a>
+    </div>
+
+    <div class="zn-card zn-card-pad mt-8">
+      <div class="zn-section-title">說明</div>
+      <ul class="mt-3 space-y-1 text-[1rem] text-slate-600 list-disc pl-6">
+        <li>設計規劃、流程、待確認事項：見 <code>設計規劃.md</code></li>
+        <li>模擬資料：<code>assets/mock.js</code>（申請項目與規費依 5.7 系統設定；權狀編號依附錄規則）</li>
+        <li>四套雛形皆支援 手機／平板／電腦（RWD）檢視；iPad 前台建議以 iPad Air 橫向（1180×820）檢視</li>
+        <li>需連網載入 CDN（Tailwind、DaisyUI、Alpine.js、Lucide）</li>
+      </ul>
+    </div>
+  </main>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

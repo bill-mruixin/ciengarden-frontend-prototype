@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>親人位置查詢｜慈恩園</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="icon" href="../assets/img/favicon.ico">
+<script src="../assets/mock.js"></script><script src="../assets/common.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  body { background: #e9eff4; }
+  .page-wrap { background: var(--zn-bg); min-height: 100vh; box-shadow: 0 0 40px rgba(15,23,42,.08); }
+  /* 分段選擇（驗證方式） */
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: .375rem; padding: .375rem; background: #eef2f6; border-radius: 1rem; }
+  .seg button { min-height: 3.5rem; border-radius: .75rem; font-weight: 700; font-size: 1.0625rem; color: var(--zn-ink-2); line-height: 1.3; padding: .25rem .5rem; }
+  .seg button.is-on { background: #fff; color: var(--zn-primary-deep); box-shadow: 0 1px 6px rgba(15,23,42,.15); outline: 2px solid var(--zn-primary); }
+  /* 位置大字晶片 */
+  .pos-chip { background: #fff; border: 2px solid #bfe3f5; border-radius: 1rem; padding: .5rem 1rem; text-align: center; min-width: 4.5rem; }
+  .pos-chip b { display: block; font-size: 2.25rem; line-height: 1.15; color: var(--zn-primary-deep); font-weight: 800; }
+  .pos-chip span { font-size: 1rem; color: var(--zn-ink-2); font-weight: 600; }
+  /* 樓層示意圖脈動 */
+  @keyframes znPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  .plan-pulse { animation: znPulse 1.4s ease-in-out infinite; }
+  .plan-svg text { font-family: 'EUDC','微軟正黑體','Microsoft JhengHei',sans-serif; }
+  /* 列印告示 */
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    html, body, .page-wrap { background: #fff !important; box-shadow: none !important; }
+    .print-wide { max-width: none !important; }
+    .poster { border: none !important; box-shadow: none !important; }
+  }
+</style>
+</head>
+<body>
+<div x-data="locate()" x-cloak class="max-w-md sm:max-w-3xl lg:max-w-6xl print-wide mx-auto page-wrap relative">
+
+  <!-- ====== Toast ====== -->
+  <div class="fixed top-3 left-0 right-0 z-50 flex flex-col items-center gap-2 px-3 pointer-events-none no-print">
+    <template x-for="t in $store.toast.items" :key="t.id">
+      <div class="alert shadow-lg max-w-sm w-full text-lg pointer-events-auto zn-fade" :class="t.type==='success' ? 'alert-success' : 'alert-warning'"><span x-text="t.msg"></span></div>
+    </template>
+  </div>
+
+  <!-- ====== 0. 列印告示 ====== -->
+  <section x-show="view==='poster'" class="p-4 sm:p-6 zn-fade"><div class="max-w-xl print:max-w-none mx-auto">
+    <div class="no-print flex gap-3 mb-4">
+      <button class="btn btn-ghost-gray flex-1" @click="go('search')"><i data-lucide="arrow-left" class="w-5 h-5"></i>返回查詢</button>
+      <button class="btn btn-primary flex-1" @click="window.print()"><i data-lucide="printer" class="w-5 h-5"></i>列印告示</button>
+    </div>
+    <div class="poster zn-card text-center p-8 border-4" style="border-color:var(--zn-primary)">
+      <div class="zn-brand justify-center mb-2"><span class="zn-brand-mark">慈</span><span class="text-3xl">慈恩園</span></div>
+      <h1 class="text-4xl font-extrabold mt-4 mb-1" style="color:var(--zn-primary-deep)">親人位置查詢</h1>
+      <p class="text-lg text-slate-500 mb-5">查詢塔位、蓮位安奉位置</p>
+      <img :src="qr" alt="查詢用 QR Code（示意）" class="mx-auto w-64 h-64 border-2 border-slate-200 rounded-xl">
+      <p class="text-3xl font-extrabold mt-5">掃描查詢親人安奉位置</p>
+      <ol class="text-left mt-6 space-y-3 text-xl">
+        <li class="flex gap-3 items-center"><span class="w-10 h-10 shrink-0 rounded-full bg-sky-500 text-white grid place-items-center font-bold" style="background:var(--zn-primary)">1</span>手機相機或 LINE 掃描上方 QR Code</li>
+        <li class="flex gap-3 items-center"><span class="w-10 h-10 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)">2</span>輸入往生者姓名，與持有人姓名或往生日期</li>
+        <li class="flex gap-3 items-center"><span class="w-10 h-10 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)">3</span>查看安奉位置與前往方式</li>
+      </ol>
+      <div class="mt-6 pt-4 border-t border-slate-200 text-lg">
+        <p>服務電話：<b x-text="site.tel"></b></p>
+        <p class="text-slate-500 text-base" x-text="'服務時間：' + site.hours"></p>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- ====== 主要畫面（查詢／結果） ====== -->
+  <div x-show="view!=='poster'" class="no-print">
+
+    <!-- 頂部小連結 -->
+    <div class="flex flex-wrap justify-between items-center gap-x-2 px-4 lg:px-8 py-2 bg-white border-b border-slate-200 text-base">
+      <span class="zn-brand text-lg"><span class="zn-brand-mark">慈</span>慈恩園</span>
+      <button class="underline text-sky-700 min-h-[48px] px-2" @click="go('poster')">列印 QR 告示（機關張貼用）</button>
+    </div>
+
+    <!-- 頁首圖 -->
+    <header class="relative h-36 lg:h-44 overflow-hidden" style="background:url('../assets/img/hero.jpg') center/cover #2f7fae">
+      <div class="absolute inset-0" style="background:linear-gradient(180deg,rgba(30,41,59,.25),rgba(30,41,59,.78))"></div>
+      <div class="absolute bottom-0 left-0 right-0 p-5 lg:px-8 text-white">
+        <h1 class="text-3xl font-extrabold tracking-wide">親人位置查詢</h1>
+        <p class="text-lg opacity-95">查詢慈恩園塔位、蓮位安奉位置</p>
+      </div>
+    </header>
+
+    <main class="p-4 sm:p-6 lg:p-8 pb-6 space-y-4">
+
+      <!-- ====== 1. 查詢頁 ====== -->
+      <template x-if="view==='search'">
+        <div class="grid lg:grid-cols-2 gap-6 items-start zn-fade">
+          <!-- 桌機：說明面板 -->
+          <aside class="hidden lg:block zn-card zn-card-pad space-y-5">
+            <h2 class="text-2xl font-extrabold" style="color:var(--zn-primary-deep)">如何查詢親人位置？</h2>
+            <img src="../assets/img/hero.jpg" alt="" class="w-full h-48 object-cover rounded-xl">
+            <ol class="space-y-4 text-lg">
+              <li class="flex gap-3 items-start"><span class="w-9 h-9 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)">1</span><span class="pt-0.5">輸入往生者姓名</span></li>
+              <li class="flex gap-3 items-start"><span class="w-9 h-9 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)">2</span><span class="pt-0.5">再選一項資料確認：持有人（購買人）姓名，或往生日期</span></li>
+              <li class="flex gap-3 items-start"><span class="w-9 h-9 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)">3</span><span class="pt-0.5">輸入驗證碼後按「查詢」，即可看到安奉位置與前往方式</span></li>
+            </ol>
+            <div class="zn-note zn-note-info"><i data-lucide="phone" class="w-6 h-6 shrink-0 mt-0.5"></i><span>查詢不到或需要協助，請洽服務處：<b x-text="site.tel"></b>（<span x-text="site.hours"></span>）</span></div>
+          </aside>
+          <div class="space-y-4">
+          <form class="zn-card zn-card-pad space-y-5" @submit.prevent="search()" novalidate>
+            <!-- 往生者姓名 -->
+            <div>
+              <label class="zn-label text-lg" for="f-name"><span class="req">*</span>往生者姓名</label>
+              <input id="f-name" type="text" class="input input-lg w-full" placeholder="例：王陳月娥" x-model="name" autocomplete="off">
+              <p class="zn-error-text" x-show="errors.name" x-text="errors.name"></p>
+            </div>
+
+            <!-- 驗證方式 -->
+            <div>
+              <label class="zn-label text-lg"><span class="req">*</span>再選一項資料來確認</label>
+              <div class="seg" role="tablist">
+                <button type="button" :class="mode==='owner' && 'is-on'" @click="mode='owner'; errors.verify=''">持有人（購買人）姓名</button>
+                <button type="button" :class="mode==='death' && 'is-on'" @click="mode='death'; errors.verify=''">往生日期</button>
+              </div>
+              <div class="mt-3" x-show="mode==='owner'">
+                <input type="text" class="input input-lg w-full" placeholder="例：王大明" x-model="owner" autocomplete="off" aria-label="持有人姓名">
+              </div>
+              <div class="mt-3" x-show="mode==='death'">
+                <div class="grid grid-cols-3 gap-2">
+                  <select class="select select-lg w-full px-2" x-model="y" aria-label="民國年"><option value="">民國 年</option><template x-for="n in 115" :key="n"><option :value="n" x-text="n + ' 年'"></option></template></select>
+                  <select class="select select-lg w-full px-2" x-model="m" aria-label="月"><option value="">月</option><template x-for="n in 12" :key="n"><option :value="n" x-text="n + ' 月'"></option></template></select>
+                  <select class="select select-lg w-full px-2" x-model="d" aria-label="日"><option value="">日</option><template x-for="n in 31" :key="n"><option :value="n" x-text="n + ' 日'"></option></template></select>
+                </div>
+                <p class="zn-hint">以民國紀年選擇（例：民國 97 年 12 月 1 日）</p>
+              </div>
+              <p class="zn-error-text" x-show="errors.verify" x-text="errors.verify"></p>
+            </div>
+
+            <!-- 驗證碼 -->
+            <div>
+              <label class="zn-label text-lg" for="f-code"><span class="req">*</span>驗證碼</label>
+              <div class="flex flex-wrap items-center gap-2">
+                <img :src="captchaImg" alt="驗證碼圖片" class="h-[60px] w-[150px] rounded-xl border border-slate-300 bg-white">
+                <button type="button" class="btn btn-ghost-gray px-3" @click="newCaptcha()" aria-label="換一組驗證碼"><i data-lucide="refresh-cw" class="w-6 h-6"></i></button>
+                <input id="f-code" type="text" inputmode="numeric" maxlength="4" class="input input-lg flex-1 min-w-[7rem] text-center tracking-widest" placeholder="4 碼" x-model="code" autocomplete="off">
+              </div>
+              <p class="zn-error-text" x-show="errors.code" x-text="errors.code"></p>
+            </div>
+
+            <!-- 次數限制 -->
+            <div class="zn-note zn-note-warn" x-show="locked"><i data-lucide="alert-triangle" class="w-6 h-6 shrink-0 mt-0.5"></i><span>查詢次數過多，請 10 分鐘後再試或洽服務處</span></div>
+
+            <button type="submit" class="btn btn-primary btn-xl w-full" :disabled="locked"><i data-lucide="search" class="w-7 h-7"></i>查詢</button>
+
+            <div class="zn-note zn-note-info"><i data-lucide="shield-check" class="w-6 h-6 shrink-0 mt-0.5"></i><span>為保護個人隱私，需同時符合兩項資料才會顯示結果</span></div>
+          </form>
+
+          <!-- 雛形測試資料 -->
+          <div class="zn-card">
+            <button type="button" class="w-full flex items-center justify-between px-5 min-h-[56px] font-semibold text-slate-600" @click="hintOpen=!hintOpen">
+              <span class="flex items-center gap-2"><i data-lucide="flask-conical" class="w-5 h-5"></i>雛形測試資料</span>
+              <i data-lucide="chevron-down" class="w-5 h-5 transition-transform" :class="hintOpen && 'rotate-180'"></i>
+            </button>
+            <div class="px-5 pb-5 space-y-2" x-show="hintOpen">
+              <p class="zn-hint">點選後自動帶入，驗證碼請照圖片輸入。</p>
+              <template x-for="c in demos" :key="c.label">
+                <button type="button" class="btn btn-soft w-full justify-start text-left h-auto py-2" @click="fill(c)">
+                  <span x-text="c.label"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ====== 2. 結果頁（找到） ====== -->
+      <template x-if="view==='found'">
+        <div class="space-y-4 zn-fade">
+          <template x-for="g in groups" :key="g.a.certNo">
+            <div class="grid lg:grid-cols-2 gap-4 lg:gap-6 items-start">
+             <div class="space-y-4 min-w-0">
+              <!-- 答案卡 -->
+              <section class="zn-card zn-card-pad" style="border:2px solid var(--zn-primary)">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-lg font-bold text-slate-600">安奉位置</span>
+                  <span class="zn-badge" :class="g.a.type==='塔位' ? 'zn-badge-blue' : 'zn-badge-gold'" x-text="g.a.type"></span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <template x-for="c in g.chips" :key="c.u + c.t">
+                    <div class="pos-chip"><b x-text="c.t"></b><span x-text="c.u"></span></div>
+                  </template>
+                </div>
+                <p class="mt-3 text-base text-slate-500">位置號碼 <span class="font-mono font-bold text-slate-700 text-lg" x-text="g.a.pos"></span></p>
+              </section>
+
+              <!-- 往生者 -->
+              <section class="zn-card zn-card-pad">
+                <h2 class="zn-section-title mb-3">往生者資料</h2>
+                <template x-for="p in g.list" :key="p.uid">
+                  <dl class="zn-kv py-3 border-b border-slate-100 last:border-0" style="grid-template-columns:7rem 1fr">
+                    <dt>往生者</dt><dd class="text-xl"><span x-text="p.title"></span> <span x-text="p.name"></span></dd>
+                    <dt>往生日期</dt><dd x-text="p.death ? ZN.rocLong(p.death) : '未登載'"></dd>
+                    <dt x-text="g.a.type==='塔位' ? '晉塔日期' : '安奉日期'"></dt><dd x-text="p.enshrine ? ZN.rocLong(p.enshrine) : '-'"></dd>
+                  </dl>
+                </template>
+                <dl class="zn-kv pt-3" style="grid-template-columns:7rem 1fr"><dt>持有人</dt><dd x-text="g.ownerMask"></dd></dl>
+              </section>
+
+              <!-- 前往方式 -->
+              <section class="zn-card zn-card-pad">
+                <h2 class="zn-section-title mb-3">前往方式</h2>
+                <ol class="space-y-3">
+                  <template x-for="(s,i) in g.steps" :key="i">
+                    <li class="flex gap-3 items-start">
+                      <span class="w-9 h-9 shrink-0 rounded-full text-white grid place-items-center font-bold" style="background:var(--zn-primary)" x-text="i+1"></span>
+                      <span class="text-xl leading-snug pt-0.5" x-text="s"></span>
+                    </li>
+                  </template>
+                </ol>
+              </section>
+             </div>
+             <div class="space-y-4 min-w-0 lg:sticky lg:top-4">
+              <!-- 樓層示意圖 -->
+              <section class="zn-card zn-card-pad">
+                <h2 class="zn-section-title mb-3" x-text="g.p.bld + ' 棟 ' + g.p.fl + g.p.r + ' 樓 樓層示意圖'"></h2>
+                <div class="plan-svg" x-html="planSvg(g.p)"></div>
+                <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-base">
+                  <span class="flex items-center gap-2"><i class="inline-block w-5 h-5 rounded" style="background:var(--zn-primary)"></i>您要找的區域</span>
+                  <span class="flex items-center gap-2"><i class="inline-block w-5 h-5 rounded bg-amber-400"></i>電梯（您在這裡）</span>
+                  <span class="flex items-center gap-2"><i class="inline-block w-5 h-5 rounded bg-slate-200"></i>其他區域</span>
+                </div>
+                <p class="zn-hint">示意圖僅供參考，實際請依現場指標。</p>
+              </section>
+
+             </div>
+            </div>
+          </template>
+
+          <!-- 服務資訊 -->
+          <section class="zn-card zn-card-pad space-y-4">
+            <h2 class="zn-section-title">需要協助嗎？</h2>
+            <div class="flex gap-3 items-start"><i data-lucide="clock" class="w-6 h-6 mt-1 shrink-0 text-sky-700"></i><div><div class="text-slate-500 text-base">開放時間</div><div class="font-semibold" x-text="site.hours"></div></div></div>
+            <a :href="telHref" class="btn btn-primary btn-lg w-full"><i data-lucide="phone" class="w-6 h-6"></i>撥打服務處 <span x-text="site.tel"></span></a>
+            <div class="flex gap-3 items-start"><i data-lucide="map-pin" class="w-6 h-6 mt-1 shrink-0 text-sky-700"></i><div><div class="text-slate-500 text-base">地址</div><div class="font-semibold" x-text="site.addr"></div></div></div>
+            <a :href="mapHref" target="_blank" rel="noopener" class="btn btn-soft btn-lg w-full"><i data-lucide="navigation" class="w-6 h-6"></i>開啟地圖導航</a>
+          </section>
+
+          <div class="grid grid-cols-2 gap-3">
+            <button class="btn btn-soft btn-lg" @click="share()"><i data-lucide="share-2" class="w-6 h-6"></i>分享給家人</button>
+            <button class="btn btn-ghost-gray btn-lg" @click="reset()"><i data-lucide="rotate-ccw" class="w-6 h-6"></i>重新查詢</button>
+          </div>
+        </div>
+      </template>
+
+      <!-- ====== 3. 不公開結果 ====== -->
+      <template x-if="view==='private'">
+        <div class="zn-card zn-card-pad text-center space-y-4 zn-fade">
+          <div class="w-20 h-20 mx-auto rounded-full grid place-items-center" style="background:var(--zn-primary-soft);color:var(--zn-primary-deep)"><i data-lucide="shield-check" class="w-11 h-11"></i></div>
+          <h2 class="text-2xl font-extrabold leading-snug">此筆資料依申請人要求不對外公開</h2>
+          <p class="text-lg text-slate-600 text-left">持有人已申請「非本人不得查詢」，因此無法在此顯示安奉位置。</p>
+          <div class="zn-note zn-note-info text-left"><i data-lucide="info" class="w-6 h-6 shrink-0 mt-0.5"></i><span>如需協助，請持有人攜帶身分證件至<b x-text="site.service"></b>辦理，或來電洽詢。</span></div>
+          <a :href="telHref" class="btn btn-primary btn-lg w-full"><i data-lucide="phone" class="w-6 h-6"></i>撥打服務處</a>
+          <button class="btn btn-ghost-gray btn-lg w-full" @click="reset()"><i data-lucide="rotate-ccw" class="w-6 h-6"></i>重新查詢</button>
+        </div>
+      </template>
+
+      <!-- ====== 4. 查無資料 ====== -->
+      <template x-if="view==='notfound'">
+        <div class="zn-card zn-card-pad space-y-4 zn-fade">
+          <div class="text-center space-y-2">
+            <div class="w-20 h-20 mx-auto rounded-full grid place-items-center bg-amber-50 text-amber-600"><i data-lucide="search-x" class="w-11 h-11"></i></div>
+            <h2 class="text-2xl font-extrabold">查無符合的資料</h2>
+          </div>
+          <div class="zn-note zn-note-warn" x-show="locked"><i data-lucide="alert-triangle" class="w-6 h-6 shrink-0 mt-0.5"></i><span>查詢次數過多，請 10 分鐘後再試或洽服務處</span></div>
+          <ul class="space-y-3 text-lg">
+            <li class="flex gap-3"><i data-lucide="check-circle-2" class="w-6 h-6 mt-1 shrink-0 text-sky-700"></i>確認姓名用字是否正確（同音字、異體字）</li>
+            <li class="flex gap-3"><i data-lucide="check-circle-2" class="w-6 h-6 mt-1 shrink-0 text-sky-700"></i>改用另一種驗證方式（持有人姓名／往生日期）</li>
+            <li class="flex gap-3"><i data-lucide="check-circle-2" class="w-6 h-6 mt-1 shrink-0 text-sky-700"></i>請洽服務處人工查詢</li>
+          </ul>
+          <button class="btn btn-primary btn-lg w-full" @click="reset()" :disabled="locked"><i data-lucide="rotate-ccw" class="w-6 h-6"></i>重新查詢</button>
+          <a :href="telHref" class="btn btn-soft btn-lg w-full"><i data-lucide="phone" class="w-6 h-6"></i>撥打服務處</a>
+        </div>
+      </template>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="px-5 pt-4 pb-20 text-center text-slate-500 text-base bg-white border-t border-slate-200 space-y-1">
+      <div class="font-bold text-slate-700">慈恩園</div>
+      <div>服務電話：<span x-text="site.tel"></span></div>
+      <div x-text="'服務時間：' + site.hours"></div>
+      <div class="pt-2 text-sm">本查詢僅提供位置資訊，不提供個人資料</div>
+    </footer>
+  </div>
+</div>
+
+<div class="zn-proto-flag">雛形 Prototype · 位置查詢</div>
+
+<script>
+/* ============================================================
+   位置查詢：Alpine 元件
+   ============================================================ */
+document.addEventListener('alpine:init', () => {
+  Alpine.data('locate', () => ({
+    // ---- 狀態 ----
+    view: 'search',            // search | found | private | notfound | poster
+    name: '', mode: 'owner', owner: '', y: '', m: '', d: '',
+    code: '', captcha: '', captchaImg: '',
+    errors: {}, fails: 0, hintOpen: false,
+    groups: [],
+    site: ZN.SITE,
+    qr: ZN.fakeQR('locate'),
+    demos: [
+      { label: '王陳月娥 + 持有人 王大明（找得到）', name: '王陳月娥', mode: 'owner', owner: '王大明' },
+      { label: '陳阿土 + 往生日期 民國97/12/01（找得到）', name: '陳阿土', mode: 'death', y: 97, m: 12, d: 1 },
+      { label: '林金水 + 持有人 林秀英（不公開）', name: '林金水', mode: 'owner', owner: '林秀英' },
+      { label: '王小美 + 持有人 王大明（查無資料）', name: '王小美', mode: 'owner', owner: '王大明' },
+    ],
+
+    // ---- 初始化 ----
+    init() {
+      this.newCaptcha();
+      this.$watch('view', () => this.icons());
+      this.$watch('hintOpen', () => this.icons());
+      this.$watch('mode', () => this.icons());
+      this.icons();
+    },
+    icons() { this.$nextTick(() => { try { lucide.createIcons(); } catch (e) {} }); },
+
+    get locked() { return this.fails >= 5; },
+    get telHref() { return 'tel:' + this.site.tel.replace(/[^\d+]/g, ''); },
+    get mapHref() { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(this.site.name + ' ' + this.site.addr); },
+
+    // ---- 畫面切換 ----
+    go(v) { this.view = v; window.scrollTo({ top: 0 }); },
+    reset() {
+      this.name = ''; this.owner = ''; this.y = this.m = this.d = ''; this.code = '';
+      this.errors = {}; this.groups = []; this.newCaptcha(); this.go('search');
+    },
+    fill(c) {
+      this.name = c.name; this.mode = c.mode; this.owner = c.owner || '';
+      this.y = c.y || ''; this.m = c.m || ''; this.d = c.d || ''; this.errors = {};
+      this.toast('已帶入測試資料，請輸入驗證碼');
+    },
+    toast(msg, type) { Alpine.store('toast').show(msg, type); },
+
+    // ---- 假驗證碼 ----
+    newCaptcha() {
+      this.captcha = String(Math.floor(1000 + Math.random() * 9000));
+      this.code = '';
+      let noise = '';
+      for (let i = 0; i < 5; i++) noise += `<line x1="${Math.random()*150}" y1="${Math.random()*60}" x2="${Math.random()*150}" y2="${Math.random()*60}" stroke="#94a3b8" stroke-width="1.5"/>`;
+      let txt = '';
+      this.captcha.split('').forEach((ch, i) => {
+        const rot = Math.round(Math.random() * 30 - 15);
+        txt += `<text x="${22 + i * 33}" y="42" font-size="36" font-weight="700" fill="#2f7fae" text-anchor="middle" transform="rotate(${rot} ${22 + i * 33} 32)" font-family="Arial,sans-serif">${ch}</text>`;
+      });
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="60" viewBox="0 0 150 60"><rect width="150" height="60" fill="#f1f5f9"/>${noise}${txt}</svg>`;
+      this.captchaImg = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    },
+
+    // ---- 查詢 ----
+    search() {
+      if (this.locked) return;
+      const e = {};
+      const name = this.name.trim();
+      if (!name) e.name = '請輸入往生者姓名';
+      if (this.mode === 'owner' && !this.owner.trim()) e.verify = '請輸入持有人（購買人）姓名';
+      if (this.mode === 'death' && !(this.y && this.m && this.d)) e.verify = '請選擇完整的往生日期（年、月、日）';
+      if (this.code.trim() !== this.captcha) e.code = '驗證碼不正確，請對照圖片重新輸入';
+      this.errors = e;
+      if (Object.keys(e).length) { if (e.code) this.newCaptcha(); return; }
+
+      const p2 = n => String(n).padStart(2, '0');
+      const iso = `${1911 + Number(this.y)}-${p2(this.m)}-${p2(this.d)}`;
+      const ownerIn = this.owner.trim();
+      const hits = [];
+      ZN.ASSETS.forEach(a => {
+        const o = ZN.customerOf(a.owner);
+        (a.deceased || []).forEach(dc => {
+          if (dc.name.trim() !== name) return;
+          const ok = this.mode === 'owner' ? (o && o.name === ownerIn) : dc.death === iso;
+          if (ok) hits.push({ a, dc });
+        });
+      });
+      const pub = hits.filter(h => !h.dc.privacy);
+      if (pub.length) {
+        this.groups = this.buildGroups(pub);
+        this.go('found');
+      } else if (hits.length) {
+        this.groups = [];            // 非本人不得查詢：絕不帶出位置
+        this.go('private');
+      } else {
+        this.fails++;
+        this.go('notfound');
+      }
+      this.newCaptcha();
+    },
+
+    // ---- 結果資料組合（依資產分組） ----
+    parsePos(pos) {
+      const m = pos.match(/^([A-Z])(\d+)(R?)([A-Z])(\d{3})-(\d+)$/);
+      if (!m) return null;
+      return { bld: m[1], fl: m[2], r: m[3], area: m[4], no: Number(m[5]), lv: m[6] };
+    },
+    buildGroups(hits) {
+      const map = new Map();
+      hits.forEach(h => { if (!map.has(h.a.certNo)) map.set(h.a.certNo, { a: h.a, list: [] }); map.get(h.a.certNo).list.push(h.dc); });
+      return [...map.values()].map(g => {
+        const p = this.parsePos(g.a.pos) || { bld: '-', fl: '-', r: '', area: '-', no: 0, lv: '-' };
+        const o = ZN.customerOf(g.a.owner);
+        return {
+          ...g, p,
+          ownerMask: o ? ZN.maskName(o.name) : '-',
+          chips: [
+            { t: p.bld, u: '棟' }, { t: p.fl + p.r, u: '樓' }, { t: p.area, u: '區' },
+            { t: String(p.no), u: '號' }, { t: p.lv, u: '層' },
+          ].map(c => ({ ...c, t: c.u === '號' || c.u === '層' ? '第 ' + c.t : c.t })),
+          steps: [
+            `至${this.site.service}`,
+            `搭乘 ${p.bld} 棟電梯至 ${p.fl}${p.r} 樓`,
+            `出電梯依指標前往 ${p.area} 區`,
+            `第 ${p.no} 號 位於第 ${p.lv} 層（由下往上數）`,
+          ],
+        };
+      });
+    },
+
+    // ---- 樓層示意圖（SVG 字串） ----
+    planSvg(p) {
+      const cols = [10, 118, 226], W = 94, topY = 10, botY = 124, H = 66;
+      const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+      let s = `<svg viewBox="0 0 330 200" class="w-full h-auto" role="img" aria-label="樓層示意圖"><rect x="0" y="0" width="330" height="200" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>`;
+      s += `<rect x="4" y="80" width="322" height="40" fill="#eef2f6"/><text x="318" y="104" font-size="11" text-anchor="end" fill="#94a3b8">走道</text>`;
+      let tcx = 0, tcy = 0, ty = 0;
+      letters.forEach((L, i) => {
+        const x = cols[i % 3], y = i < 3 ? topY : botY, on = L === p.area;
+        if (on) { tcx = x + W / 2; tcy = y + H / 2; ty = i < 3 ? y + H : y; }
+        s += `<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="8" fill="${on ? '#61b0db' : '#e2e8f0'}" ${on ? 'class="plan-pulse" stroke="#2f7fae" stroke-width="3"' : ''}/>`;
+        s += `<text x="${x + W / 2}" y="${y + H / 2 + (on ? 2 : 9)}" font-size="${on ? 30 : 26}" font-weight="800" text-anchor="middle" fill="${on ? '#fff' : '#64748b'}">${L}</text>`;
+        if (on) s += `<text x="${x + W / 2}" y="${y + H / 2 + 24}" font-size="13" font-weight="700" text-anchor="middle" fill="#fff">目標區域</text>`;
+      });
+      // 路線：電梯 → 目標區
+      s += `<path d="M66 100 H${tcx} V${ty}" fill="none" stroke="#d97706" stroke-width="4" stroke-dasharray="7 6" stroke-linecap="round"/>`;
+      // 電梯
+      s += `<rect x="10" y="86" width="56" height="28" rx="6" fill="#fbbf24" stroke="#b45309" stroke-width="2"/><text x="38" y="105" font-size="14" font-weight="700" text-anchor="middle" fill="#451a03">電梯</text>`;
+      s += `<text x="10" y="76" font-size="13" font-weight="700" fill="#b45309">您在這裡：電梯</text>`;
+      s += `</svg>`;
+      return s;
+    },
+
+    // ---- 分享 ----
+    async share() {
+      const g = this.groups[0];
+      if (!g) return;
+      const text = `【慈恩園】${g.list[0].title}${g.list[0].name} 安奉位置：${ZN.posText(g.a.pos)}（位置號碼 ${g.a.pos}）。服務電話 ${this.site.tel}`;
+      try {
+        if (navigator.share) { await navigator.share({ title: '慈恩園 親人位置', text }); return; }
+        await navigator.clipboard.writeText(text);
+        this.toast('已複製位置資訊，可貼給家人');
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        this.toast('已準備分享內容（雛形環境無法複製）', 'warn');
+      }
+    },
+  }));
+});
+</script>
+</body>
+</html>

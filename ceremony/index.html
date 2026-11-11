@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet"><script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="../assets/theme.css"><link rel="icon" href="../assets/img/favicon.ico">
+<script src="../assets/mock.js"></script><script src="../assets/common.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<title>慈恩園 法會報名（雛形）</title>
+<style>
+  /* ---- 法會頁專用樣式（僅本頁，不動 assets） ---- */
+  .cv-spring { background: linear-gradient(135deg, #dcedd0 0%, #f3e8bf 100%); color: #6b8f4e; }
+  .cv-summer { background: linear-gradient(135deg, #fde8cb 0%, #f5c79c 100%); color: #c2763a; }
+  .cv-winter { background: linear-gradient(135deg, #dce7f1 0%, #b7c7d9 100%); color: #4f6b87; }
+  .cv-default { background: linear-gradient(135deg, #e6f7ff 0%, #d1e2fe 100%); color: #2f7fae; }
+  .gold-line { height: 1px; background: linear-gradient(90deg, transparent, var(--zn-gold), transparent); }
+  .qty-btn { width: 3.5rem; height: 3.5rem; border-radius: .875rem; border: 2px solid #cbd5e1; background: #fff; display: grid; place-items: center; color: var(--zn-primary-deep); transition: background .15s; }
+  .qty-btn:hover:not(:disabled) { background: var(--zn-primary-soft); border-color: var(--zn-primary); }
+  .qty-btn:disabled { opacity: .35; cursor: not-allowed; }
+  /* 牌位預覽：直書 */
+  .tablet { writing-mode: vertical-rl; display: inline-block; padding: 1.1rem .9rem; border: 3px double var(--zn-gold); border-radius: .4rem;
+    background: linear-gradient(#fffdf6, #fbf5e9); font-family: DFKai-SB, BiauKai, KaiTi, '標楷體', serif;
+    box-shadow: 0 2px 10px rgba(184,137,59,.28), inset 0 0 0 4px #fffaf0, inset 0 0 0 5px #ecd9b0; letter-spacing: .15em; line-height: 1.5; }
+  .tablet-main { font-size: 1.5rem; font-weight: 700; text-align: center; }
+  .tablet-main .t-head, .tablet-main .t-tail { color: #9b1c1c; }
+  .tablet-main .t-name { color: #1e293b; padding-block: .2rem; }
+  .tablet-yang { font-size: 1.05rem; color: #7c5a1a; text-align: end; margin-right: 1.1rem; }
+  .tablet-sm .tablet-main { font-size: 1.1rem; } .tablet-sm .tablet-yang { font-size: .85rem; }
+  /* 列印回執 */
+  .print-only { display: none; }
+  @media print { .print-only { display: block !important; } body { font-size: 14pt; } }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+</style>
+</head>
+<body class="min-h-screen" x-data="app()" x-init="boot()">
+
+<div class="no-print">
+
+<!-- ================= 頂部列：品牌 + 導覽 ================= -->
+<header class="zn-topbar sticky top-0 z-40">
+  <div class="mx-auto px-4 lg:px-6" :class="(view==='admin' ? 'max-w-7xl' : (['list','wizard'].includes(view) ? 'max-w-lg sm:max-w-3xl lg:max-w-6xl' : 'max-w-lg sm:max-w-2xl lg:max-w-3xl'))">
+    <div class="flex items-center justify-between py-2">
+      <div class="zn-brand"><span class="zn-brand-mark">慈</span>慈恩園 法會報名</div>
+      <!-- 管理端入口：小、右側、鎖頭 -->
+      <button class="btn btn-ghost btn-sm text-sm font-normal text-slate-500 gap-1" @click="openAdmin()" aria-label="管理端">
+        <i data-lucide="lock" class="w-4 h-4"></i>管理端
+      </button>
+    </div>
+    <nav class="grid grid-cols-2 gap-2 pb-2" :class="view==='admin' ? 'max-w-md' : ''">
+      <button class="btn" :class="['list','intro','wizard','done'].includes(view) ? 'btn-primary' : 'btn-soft'" @click="go('list')"><i data-lucide="flower-2" class="w-5 h-5"></i>法會資訊</button>
+      <button class="btn" :class="view==='query' ? 'btn-primary' : 'btn-soft'" @click="go('query')"><i data-lucide="search" class="w-5 h-5"></i>報名查詢</button>
+    </nav>
+  </div>
+</header>
+
+<main class="mx-auto px-4 lg:px-6 py-5" :class="[(view==='admin' ? 'max-w-7xl' : (['list','wizard'].includes(view) ? 'max-w-lg sm:max-w-3xl lg:max-w-6xl' : 'max-w-lg sm:max-w-2xl lg:max-w-3xl')), view==='wizard' ? 'pb-36' : 'pb-16']">
+
+<!-- ================= 畫面 1：法會列表 ================= -->
+<template x-if="view==='list'">
+<div class="space-y-5 zn-fade">
+  <section class="rounded-2xl overflow-hidden text-white text-center"
+    style="background-image:linear-gradient(180deg,rgba(15,23,42,.25),rgba(15,23,42,.78)),url('../assets/img/hero.jpg');background-size:cover;background-position:center">
+    <div class="px-6 py-12">
+      <div class="mx-auto mb-3 w-14 h-14 rounded-full grid place-items-center" style="background:rgba(184,137,59,.9)"><i data-lucide="flower-2" class="w-8 h-8"></i></div>
+      <h1 class="text-3xl font-bold tracking-widest">慈恩園 法會</h1>
+      <div class="gold-line my-3 mx-10"></div>
+      <p class="text-lg tracking-widest" style="color:#f3dfae">慎終追遠 · 為親人祈福</p>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
+  <template x-if="!ceremonies.length">
+    <div class="zn-card zn-card-pad text-center text-slate-500 sm:col-span-2 lg:col-span-3"><i data-lucide="calendar-x" class="w-10 h-10 mx-auto mb-2"></i><p>目前沒有法會資訊，請稍後再來。</p></div>
+  </template>
+
+  <template x-for="c in ceremonies" :key="c.id">
+    <article class="zn-card overflow-hidden">
+      <div class="h-28 relative grid place-items-center" :class="'cv-'+(['spring','summer','winter'].includes(c.cover)?c.cover:'default')">
+        <i data-lucide="flower-2" class="w-16 h-16 opacity-80"></i>
+        <span class="absolute top-3 right-3" :class="cbadge(cstat(c))" x-text="cstat(c)"></span>
+      </div>
+      <div class="p-5 space-y-3">
+        <h2 class="text-2xl font-bold leading-snug" x-text="c.name"></h2>
+        <dl class="space-y-1 text-[1.0625rem]">
+          <div class="flex gap-2"><i data-lucide="calendar-days" class="w-5 h-5 mt-1 shrink-0 text-slate-500"></i><dd>日期：民國 <span x-text="rocRange(c)"></span></dd></div>
+          <div class="flex gap-2"><i data-lucide="map-pin" class="w-5 h-5 mt-1 shrink-0 text-slate-500"></i><dd>地點：<span x-text="c.place"></span></dd></div>
+          <div class="flex gap-2"><i data-lucide="clock" class="w-5 h-5 mt-1 shrink-0 text-slate-500"></i><dd>報名截止：<span x-text="ZN.rocLong(c.deadline)"></span></dd></div>
+        </dl>
+        <!-- 名額 -->
+        <div>
+          <div class="flex justify-between text-base text-slate-600 mb-1">
+            <span>已報名 <b x-text="c.taken"></b> / <span x-text="c.quota"></span> 位</span>
+            <span x-show="c.options.length" x-text="'剩 '+left(c)+' 位'"></span>
+          </div>
+          <div class="h-3 rounded-full bg-slate-200 overflow-hidden"><div class="h-full rounded-full" :style="'width:'+pct(c)+'%;background:'+(c.taken/c.quota>=.95?'#d97706':'var(--zn-primary)')"></div></div>
+          <p x-show="c.quota && c.taken/c.quota>=.95 && cstat(c)==='報名中'" class="mt-2 font-bold" style="color:#b45309">名額即將額滿</p>
+        </div>
+        <p x-show="cstat(c)==='即將開放'" class="zn-hint">此法會尚未開放報名，敬請期待。</p>
+        <div class="grid grid-cols-2 gap-3 pt-1">
+          <button class="btn btn-soft" @click="openIntro(c.id)">法會介紹</button>
+          <button class="btn btn-primary" :disabled="!canReg(c)" @click="curId=c.id; startWizard()">立即報名</button>
+        </div>
+      </div>
+    </article>
+  </template>
+  </div>
+</div>
+</template>
+
+<!-- ================= 畫面 2：法會介紹 ================= -->
+<template x-if="view==='intro' && cur">
+<div class="space-y-5 zn-fade">
+  <button class="btn btn-ghost-gray btn-sm" @click="go('list')"><i data-lucide="chevron-left" class="w-5 h-5"></i>回法會列表</button>
+  <div class="zn-card overflow-hidden">
+    <div class="h-24 grid place-items-center" :class="'cv-'+(['spring','summer','winter'].includes(cur.cover)?cur.cover:'default')"><i data-lucide="flower-2" class="w-14 h-14 opacity-80"></i></div>
+    <div class="p-5 space-y-3">
+      <div class="flex items-start justify-between gap-2">
+        <h1 class="text-2xl font-bold leading-snug" x-text="cur.name"></h1>
+        <span :class="cbadge(cstat(cur))" x-text="cstat(cur)"></span>
+      </div>
+      <p class="text-lg leading-relaxed" x-text="cur.desc"></p>
+      <dl class="zn-kv">
+        <dt>日期</dt><dd>民國 <span x-text="rocRange(cur)"></span></dd>
+        <dt>地點</dt><dd x-text="cur.place"></dd>
+        <dt>報名截止</dt><dd x-text="ZN.rocLong(cur.deadline)"></dd>
+        <dt>名額</dt><dd><span x-text="cur.taken"></span> / <span x-text="cur.quota"></span> 位</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="zn-card zn-card-pad space-y-3">
+    <h2 class="zn-section-title">法會流程 <span class="zn-badge zn-badge-gold">示意</span></h2>
+    <ul class="space-y-2">
+      <template x-for="s in schedule" :key="s.t">
+        <li class="flex gap-3"><b class="w-16 shrink-0" style="color:var(--zn-gold)" x-text="s.t"></b><span x-text="s.d"></span></li>
+      </template>
+    </ul>
+  </div>
+
+  <div class="zn-card zn-card-pad space-y-3">
+    <h2 class="zn-section-title">報名項目與費用</h2>
+    <template x-if="!cur.options.length"><p class="text-slate-500">報名項目尚未公布。</p></template>
+    <template x-for="o in cur.options" :key="o.key">
+      <div class="border-b last:border-0 border-slate-100 pb-3 last:pb-0">
+        <div class="flex justify-between gap-2"><b x-text="o.name"></b><b class="whitespace-nowrap" style="color:var(--zn-primary-deep)" x-text="ZN.money(o.price)+' / '+o.unit"></b></div>
+        <p class="zn-hint" x-show="o.note" x-text="o.note"></p>
+      </div>
+    </template>
+  </div>
+
+  <!-- 報名須知（可收合） -->
+  <div class="zn-card">
+    <button class="w-full flex items-center justify-between p-5 text-left min-h-[3.5rem]" @click="noticeOpen=!noticeOpen" :aria-expanded="noticeOpen">
+      <span class="zn-section-title"><i data-lucide="scroll-text" class="w-5 h-5" style="color:var(--zn-gold)"></i>報名須知</span>
+      <span x-show="!noticeOpen"><i data-lucide="chevron-down" class="w-6 h-6"></i></span>
+      <span x-show="noticeOpen"><i data-lucide="chevron-up" class="w-6 h-6"></i></span>
+    </button>
+    <div x-show="noticeOpen" x-collapse class="px-5 pb-5">
+      <ol class="list-decimal pl-6 space-y-2 text-[1.0625rem]">
+        <li>報名後 <b>3 日內</b>完成轉帳，逾期視同取消。</li>
+        <li>牌位書寫以報名資料為準，送出前請再三確認姓名。</li>
+        <li>如需協助請電洽 <b x-text="site.tel"></b>（<span x-text="site.hours"></span>）。</li>
+      </ol>
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-lg w-full" :disabled="!canReg(cur)" @click="startWizard()">立即報名</button>
+  <p class="zn-hint text-center" x-show="!canReg(cur)">目前無法報名（<span x-text="cstat(cur)"></span>）。</p>
+</div>
+</template>
+
+<!-- ================= 畫面 3：報名 wizard ================= -->
+<template x-if="view==='wizard' && cur">
+<div class="space-y-5 zn-fade">
+  <div>
+    <p class="text-slate-500 text-base">報名：<b x-text="cur.name"></b></p>
+    <div class="zn-steps mt-3">
+      <template x-for="(s,i) in ['選擇項目','填寫資料','確認送出']" :key="i">
+        <div class="contents">
+          <div class="zn-step" :class="step===i+1 ? 'is-active' : (step>i+1 ? 'is-done' : '')">
+            <span class="zn-step-dot"><span x-show="step<=i+1" x-text="i+1"></span><span x-show="step>i+1"><i data-lucide="check" class="w-4 h-4"></i></span></span>
+            <span :class="step===i+1 ? '' : 'hidden sm:inline'" x-text="s"></span>
+          </div>
+          <div class="zn-step-line" x-show="i<2" :class="step>i+1 ? 'is-done' : ''"></div>
+        </div>
+      </template>
+    </div>
+    <p class="mt-2 text-slate-500 text-base">第 <span x-text="step"></span> 步，共 3 步</p>
+  </div>
+
+  <!-- ① 選擇項目 -->
+  <template x-if="step===1">
+    <div class="space-y-4">
+      <h2 class="text-2xl font-bold">請選擇要報名的項目</h2>
+      <p class="zn-hint">按「＋」增加位數，每個項目最多 10 位。剩餘名額 <b x-text="left(cur)"></b> 位。</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <template x-for="o in cur.options" :key="o.key">
+        <div class="zn-choice flex-col" :class="(qty[o.key]||0)>0 ? 'is-on' : ''" style="cursor:default">
+          <div class="w-full">
+            <div class="flex justify-between items-start gap-2">
+              <b class="text-xl" x-text="o.name"></b>
+              <b class="whitespace-nowrap text-lg" style="color:var(--zn-primary-deep)" x-text="ZN.money(o.price)+' / '+o.unit"></b>
+            </div>
+            <p class="zn-hint" x-show="o.note" x-text="o.note"></p>
+          </div>
+          <div class="w-full flex items-center justify-between">
+            <span class="text-slate-500" x-show="(qty[o.key]||0)>0" x-text="'小計 '+ZN.money(o.price*(qty[o.key]||0))"></span>
+            <span x-show="!(qty[o.key]||0)"></span>
+            <div class="flex items-center gap-3">
+              <button class="qty-btn" @click="dec(o)" :disabled="!(qty[o.key]>0)" aria-label="減少"><i data-lucide="minus" class="w-6 h-6"></i></button>
+              <span class="text-3xl font-bold w-10 text-center" x-text="qty[o.key]||0"></span>
+              <button class="qty-btn" @click="inc(o)" :disabled="!canInc(o)" aria-label="增加"><i data-lucide="plus" class="w-6 h-6"></i></button>
+            </div>
+          </div>
+        </div>
+      </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- ② 填寫資料 -->
+  <template x-if="step===2">
+    <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8 lg:items-start">
+    <div class="space-y-5 min-w-0">
+      <h2 class="text-2xl font-bold">請填寫報名資料</h2>
+
+      <div class="zn-card zn-card-pad space-y-4">
+        <div class="flex items-center justify-between gap-2">
+          <h3 class="zn-section-title">報名人</h3>
+          <button class="btn btn-soft btn-sm" @click="fillMember()"><i data-lucide="user-check" class="w-5 h-5"></i>會員一鍵帶入</button>
+        </div>
+        <div :class="tried2 && errs.name ? 'has-err' : ''">
+          <label class="zn-label"><span class="req">*</span>姓名</label>
+          <input class="input w-full" x-model="form.name" placeholder="請輸入姓名" autocomplete="name">
+          <p class="zn-error-text" x-show="tried2 && errs.name" x-text="errs.name"></p>
+        </div>
+        <div :class="tried2 && errs.phone ? 'has-err' : ''">
+          <label class="zn-label"><span class="req">*</span>手機號碼</label>
+          <input class="input w-full" x-model="form.phone" inputmode="numeric" maxlength="10" placeholder="例：0912345678" autocomplete="tel">
+          <p class="zn-error-text" x-show="tried2 && errs.phone" x-text="errs.phone"></p>
+        </div>
+        <div :class="tried2 && errs.email ? 'has-err' : ''">
+          <label class="zn-label">Email（選填）</label>
+          <input class="input w-full" x-model="form.email" type="email" placeholder="example@mail.com">
+          <p class="zn-error-text" x-show="tried2 && errs.email" x-text="errs.email"></p>
+        </div>
+        <div>
+          <label class="zn-label">通訊地址（選填）</label>
+          <input class="input w-full" x-model="form.addr" placeholder="縣市、區、路、號">
+        </div>
+      </div>
+
+      <!-- 會員帶入後：往生親人快速選取 -->
+      <div class="zn-note zn-note-info flex-col" x-show="memberOn">
+        <b><i data-lucide="info" class="w-5 h-5 inline"></i> 已帶入會員資料。點選下方親人，可自動填入下一個空白的往生牌位：</b>
+        <div class="flex flex-wrap gap-2">
+          <template x-for="d in memberDeceased" :key="d.name">
+            <button class="btn btn-soft btn-sm" @click="useDeceased(d)" x-text="d.label"></button>
+          </template>
+        </div>
+      </div>
+
+      <h3 class="zn-section-title">牌位資料（共 <span x-text="tablets.length"></span> 位）</h3>
+      <template x-for="(t,i) in tablets" :key="i">
+        <div class="zn-card zn-card-pad space-y-3">
+          <div class="flex items-center justify-between">
+            <b class="text-lg">第 <span x-text="i+1"></span> 位　<span x-text="t.name"></span></b>
+            <span class="zn-badge zn-badge-gold" x-text="ZN.money(t.price)"></span>
+          </div>
+          <div :class="tried2 && errs.t[i] && errs.t[i].target ? 'has-err' : ''">
+            <label class="zn-label"><span class="req">*</span><span x-text="isLiving(t) ? '祈福者姓名' : '往生者（祖先）姓名'"></span></label>
+            <input class="input w-full" x-model="t.target" :placeholder="phOf(t)">
+            <p class="zn-error-text" x-show="tried2 && errs.t[i] && errs.t[i].target" x-text="errs.t[i] && errs.t[i].target"></p>
+          </div>
+          <div :class="tried2 && errs.t[i] && errs.t[i].yang ? 'has-err' : ''">
+            <label class="zn-label"><span class="req">*</span>陽上報恩人</label>
+            <input class="input w-full" :value="yangOf(t)" @input="t.yang=$event.target.value; t.yangEdited=true" placeholder="預設為報名人">
+            <p class="zn-error-text" x-show="tried2 && errs.t[i] && errs.t[i].yang" x-text="errs.t[i] && errs.t[i].yang"></p>
+          </div>
+          <div class="lg:hidden">
+            <p class="zn-hint mb-2">牌位預覽（實際以師父書寫為準）</p>
+            <div class="text-center py-3 rounded-xl overflow-x-auto" style="background:var(--zn-gold-soft)" x-html="tabletHTML(t)"></div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <!-- 桌機：牌位預覽（固定於右側） -->
+    <aside class="hidden lg:block lg:sticky lg:top-40 max-h-[calc(100vh-11rem)] overflow-y-auto">
+      <div class="zn-card zn-card-pad space-y-3">
+        <h3 class="zn-section-title"><i data-lucide="scroll-text" class="w-5 h-5" style="color:var(--zn-gold)"></i>牌位預覽</h3>
+        <p class="zn-hint">實際以師父書寫為準</p>
+        <template x-for="(t,i) in tablets" :key="i">
+          <div>
+            <p class="text-base font-semibold mb-1">第 <span x-text="i+1"></span> 位　<span x-text="t.name"></span></p>
+            <div class="text-center py-3 rounded-xl overflow-x-auto" style="background:var(--zn-gold-soft)" x-html="tabletHTML(t)"></div>
+          </div>
+        </template>
+      </div>
+    </aside>
+    </div>
+  </template>
+
+  <!-- ③ 確認送出 -->
+  <template x-if="step===3">
+    <div class="space-y-5">
+      <h2 class="text-2xl font-bold">請確認報名內容</h2>
+      <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-8 lg:items-start space-y-5 lg:space-y-0">
+      <div class="space-y-5 min-w-0">
+      <div class="zn-card zn-card-pad space-y-2">
+        <h3 class="zn-section-title">報名人</h3>
+        <dl class="zn-kv">
+          <dt>姓名</dt><dd x-text="form.name"></dd>
+          <dt>手機</dt><dd x-text="form.phone"></dd>
+          <dt x-show="form.email">Email</dt><dd x-show="form.email" x-text="form.email"></dd>
+          <dt x-show="form.addr">地址</dt><dd x-show="form.addr" x-text="form.addr"></dd>
+        </dl>
+      </div>
+      <div class="zn-card zn-card-pad space-y-3">
+        <h3 class="zn-section-title">牌位與費用</h3>
+        <template x-for="(t,i) in tablets" :key="i">
+          <div class="flex justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
+            <div><b x-text="t.name"></b><p class="text-base text-slate-600">對象：<span x-text="t.target"></span>　陽上：<span x-text="yangOf(t)"></span></p></div>
+            <span class="whitespace-nowrap" x-text="ZN.money(t.price)"></span>
+          </div>
+        </template>
+        <div class="gold-line"></div>
+        <div class="flex justify-between items-center"><b class="text-lg">應繳總額</b><b class="text-2xl" style="color:var(--zn-primary-deep)" x-text="ZN.money(total)"></b></div>
+      </div>
+      </div>
+      <div class="space-y-5 lg:sticky lg:top-40">
+      <div class="zn-note zn-note-warn"><i data-lucide="alert-triangle" class="w-6 h-6 shrink-0"></i><span>送出後請於 <b>3 日內</b>完成轉帳，逾期視同取消。牌位將依以上資料書寫。</span></div>
+      <label class="zn-choice items-center" :class="agree ? 'is-on' : ''">
+        <input type="checkbox" class="hidden" x-model="agree">
+        <span class="zn-check"><span x-show="agree"><i data-lucide="check" class="w-5 h-5"></i></span></span>
+        <span class="text-lg">我已確認以上資料正確，並同意報名須知。</span>
+      </label>
+      </div>
+      </div>
+    </div>
+  </template>
+</div>
+</template>
+
+<!-- ================= 畫面 4：報名完成 ================= -->
+<template x-if="view==='done' && lastReg">
+<div class="space-y-5 zn-fade">
+  <div class="text-center space-y-2">
+    <div class="mx-auto w-20 h-20 rounded-full grid place-items-center text-white" style="background:var(--zn-success)"><i data-lucide="check" class="w-12 h-12"></i></div>
+    <h1 class="text-3xl font-bold">報名完成</h1>
+    <p class="text-slate-600">請於下方期限內完成轉帳，才算報名成功。</p>
+  </div>
+  <div class="zn-card zn-card-pad space-y-3 text-center">
+    <p class="text-slate-500">報名編號</p>
+    <div class="flex items-center justify-center gap-2">
+      <b class="text-3xl tracking-wider" style="color:var(--zn-primary-deep)" x-text="lastReg.no"></b>
+      <button class="btn btn-soft btn-sm" @click="copy(lastReg.no)" aria-label="複製報名編號"><i data-lucide="copy" class="w-5 h-5"></i>複製</button>
+    </div>
+    <span :class="ZN.badge(lastReg.status)+' mx-auto text-lg'" x-text="lastReg.status"></span>
+    <div class="gold-line"></div>
+    <p class="text-slate-500">應繳金額</p>
+    <b class="text-4xl" x-text="ZN.money(lastReg.amount)"></b>
+    <p class="font-bold" style="color:#b45309">繳費期限：<span x-text="ZN.rocLong(addDays(lastReg.at,3))"></span></p>
+  </div>
+
+  <div class="zn-card zn-card-pad space-y-3">
+    <h2 class="zn-section-title">轉帳資訊</h2>
+    <template x-for="r in bankRows" :key="r.k">
+      <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
+        <div><p class="text-sm text-slate-500" x-text="r.k"></p><b class="text-lg break-all" x-text="r.v"></b></div>
+        <button class="btn btn-soft btn-sm shrink-0" @click="copy(r.v)"><i data-lucide="copy" class="w-5 h-5"></i>複製</button>
+      </div>
+    </template>
+  </div>
+
+  <div class="zn-note zn-note-info"><i data-lucide="lightbulb" class="w-6 h-6 shrink-0"></i><span>轉帳後請回到「<b>報名查詢</b>」回報帳號<b>末五碼</b>，會計核對後即完成報名。</span></div>
+
+  <div class="space-y-3">
+    <button class="btn btn-primary btn-lg w-full" @click="goReport()"><i data-lucide="send" class="w-5 h-5"></i>立即回報繳費</button>
+    <button class="btn btn-soft w-full" @click="printReceipt(lastReg)"><i data-lucide="printer" class="w-5 h-5"></i>下載報名回執</button>
+    <button class="btn btn-ghost-gray w-full" @click="go('list')">回法會列表</button>
+  </div>
+</div>
+</template>
+
+<!-- ================= 畫面 5：報名查詢 ================= -->
+<template x-if="view==='query'">
+<div class="space-y-5 zn-fade">
+  <h1 class="text-2xl font-bold">報名查詢</h1>
+  <div class="zn-card zn-card-pad space-y-4">
+    <div>
+      <label class="zn-label"><span class="req">*</span>手機號碼</label>
+      <input class="input w-full" x-model="q.phone" inputmode="numeric" maxlength="10" placeholder="報名時填寫的手機" @keydown.enter="search()">
+    </div>
+    <div>
+      <label class="zn-label"><span class="req">*</span>報名編號 或 姓名</label>
+      <input class="input w-full" x-model="q.key" placeholder="例：CE-115-000123 或 王大明" @keydown.enter="search()">
+    </div>
+    <p class="zn-error-text" x-show="qErr" x-text="qErr"></p>
+    <button class="btn btn-primary btn-lg w-full" @click="search()"><i data-lucide="search" class="w-5 h-5"></i>查詢</button>
+    <div class="zn-note zn-note-info flex-col">
+      <b>雛形示範：點一下自動填入</b>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-soft btn-sm" @click="q.phone='0912345678'; q.key='CE-115-000123'">0912345678 / CE-115-000123</button>
+        <button class="btn btn-soft btn-sm" @click="q.phone='0933222111'; q.key='CE-115-000098'">0933222111 / CE-115-000098</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 查無資料 -->
+  <template x-if="qDone && !qResults.length">
+    <div class="zn-card zn-card-pad space-y-3 text-center">
+      <i data-lucide="search-x" class="w-12 h-12 mx-auto text-slate-400"></i>
+      <h2 class="text-xl font-bold">查無符合條件的資料</h2>
+      <ul class="text-left list-disc pl-6 space-y-1 text-slate-600">
+        <li>手機號碼需與報名時填寫的完全相同。</li>
+        <li>報名編號格式如 CE-115-000123，或改填報名人姓名。</li>
+        <li>仍找不到，請電洽 <b x-text="site.tel"></b>。</li>
+      </ul>
+    </div>
+  </template>
+
+  <!-- 查詢結果 -->
+  <template x-for="r in qResults" :key="r.no">
+    <div class="zn-card overflow-hidden">
+      <div class="p-5 space-y-3">
+        <p class="text-slate-500" x-text="cer(r.ceremony) ? cer(r.ceremony).name : ''"></p>
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <b class="text-2xl" x-text="r.no"></b>
+          <span :class="ZN.badge(r.status)+' text-xl'" style="padding:.25rem 1rem" x-text="r.status"></span>
+        </div>
+        <div class="zn-note" :class="statusInfo(r.status).cls"><i data-lucide="info" class="w-6 h-6 shrink-0"></i><div><b class="text-lg" x-text="statusInfo(r.status).text"></b><p x-show="r.status==='待付款'" class="mt-1">請於 <b x-text="ZN.rocLong(addDays(r.at,3))"></b> 前完成轉帳。</p><p x-show="r.returnReason" class="mt-1">退回原因：<span x-text="r.returnReason"></span></p></div></div>
+
+        <dl class="zn-kv">
+          <dt>報名人</dt><dd x-text="r.name"></dd>
+          <dt>報名日期</dt><dd x-text="'民國 '+ZN.roc(r.at)"></dd>
+          <dt>應繳金額</dt><dd x-text="ZN.money(r.amount)"></dd>
+          <template x-if="r.report"><dt>繳費回報</dt></template>
+          <template x-if="r.report"><dd>末五碼 <span x-text="r.report.last5"></span>／<span x-text="ZN.roc(r.report.date)"></span>／<span x-text="ZN.money(r.report.amount)"></span></dd></template>
+        </dl>
+        <div class="gold-line"></div>
+        <h3 class="font-bold">報名項目與牌位</h3>
+        <template x-for="it in r.items" :key="it.key">
+          <div class="rounded-xl p-3" style="background:var(--zn-gold-soft)">
+            <b x-text="it.name+' × '+it.qty"></b>
+            <p class="text-base text-slate-700">對象：<span x-text="it.target"></span></p>
+            <p class="text-base text-slate-700">陽上：<span x-text="it.yang"></span></p>
+          </div>
+        </template>
+        <button class="btn btn-soft w-full" @click="printReceipt(r)"><i data-lucide="printer" class="w-5 h-5"></i>下載報名回執</button>
+      </div>
+
+      <!-- 繳費回報表單（僅待付款） -->
+      <template x-if="r.status==='待付款' && rf[r.no]">
+        <div class="p-5 space-y-4 border-t border-slate-100" style="background:#fafcfe">
+          <h3 class="zn-section-title">回報繳費</h3>
+          <div class="zn-note zn-note-info flex-col text-base">
+            <span>轉入帳號：<b x-text="bank.name+'　'+bank.account"></b></span>
+          </div>
+          <div>
+            <label class="zn-label"><span class="req">*</span>轉帳帳號末五碼</label>
+            <input class="input w-full" x-model="rf[r.no].last5" inputmode="numeric" maxlength="5" placeholder="5 位數字">
+            <p class="zn-error-text" x-show="rf[r.no].tried && !/^\d{5}$/.test(rf[r.no].last5)">請輸入 5 位數字</p>
+          </div>
+          <div>
+            <label class="zn-label"><span class="req">*</span>轉帳日期</label>
+            <input class="input w-full" type="date" x-model="rf[r.no].date" :max="iso(new Date())">
+            <p class="zn-hint" x-show="rf[r.no].date" x-text="'民國 '+ZN.roc(rf[r.no].date)"></p>
+            <p class="zn-error-text" x-show="rf[r.no].tried && !rf[r.no].date">請選擇轉帳日期</p>
+          </div>
+          <div>
+            <label class="zn-label"><span class="req">*</span>轉帳金額</label>
+            <input class="input w-full" type="number" inputmode="numeric" x-model="rf[r.no].amount">
+            <p class="zn-error-text" x-show="rf[r.no].tried && !(Number(rf[r.no].amount)>0)">請輸入轉帳金額</p>
+          </div>
+          <button class="btn btn-primary btn-lg w-full" @click="submitReport(r)">送出回報</button>
+        </div>
+      </template>
+    </div>
+  </template>
+</div>
+</template>
+
+<!-- ================= 畫面 6：管理端（桌機寬版） ================= -->
+<template x-if="view==='admin' && isAdmin">
+<div class="space-y-5 zn-fade">
+  <div class="flex items-center justify-between flex-wrap gap-2">
+    <h1 class="text-2xl font-bold">法會報名管理</h1>
+    <div class="flex gap-2 flex-wrap">
+      <button class="btn btn-soft btn-sm" @click="toast('雛形：匯出功能示意')"><i data-lucide="file-spreadsheet" class="w-5 h-5"></i>匯出 Excel</button>
+      <button class="btn btn-soft btn-sm" @click="toast('雛形：列印功能示意')"><i data-lucide="printer" class="w-5 h-5"></i>列印法會名冊</button>
+      <button class="btn btn-ghost-gray btn-sm" @click="logout()"><i data-lucide="log-out" class="w-5 h-5"></i>登出</button>
+    </div>
+  </div>
+
+  <!-- 篩選列 -->
+  <div class="bg-white rounded-xl border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+    <div class="sm:col-span-2"><label class="zn-label">法會</label>
+      <select class="select w-full" x-model="f.cer"><option value="">全部法會</option><template x-for="c in ceremonies" :key="c.id"><option :value="c.id" x-text="c.name"></option></template></select></div>
+    <div><label class="zn-label">狀態</label>
+      <select class="select w-full" x-model="f.status"><option value="">全部</option><template x-for="s in ['待付款','對帳中','報名成功','已取消']" :key="s"><option :value="s" x-text="s"></option></template></select></div>
+    <div><label class="zn-label">關鍵字</label><input class="input w-full" x-model="f.kw" placeholder="姓名／手機／編號" @keydown.enter="applyFilter()"></div>
+    <div class="flex gap-2 sm:col-span-2 lg:col-span-1"><button class="btn btn-primary flex-1" @click="applyFilter()">查詢</button><button class="btn btn-ghost-gray flex-1" @click="resetFilter()">重設</button></div>
+  </div>
+
+  <!-- 統計卡 -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-sm text-slate-500">報名數</p><b class="text-3xl" x-text="stats.total"></b></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-sm text-slate-500">待付款</p><b class="text-3xl" style="color:#854d0e" x-text="stats.pending"></b></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-sm text-slate-500">對帳中</p><b class="text-3xl" style="color:#7e22ce" x-text="stats.check"></b></div>
+    <div class="bg-white rounded-xl border border-slate-200 p-4"><p class="text-sm text-slate-500">報名成功</p><b class="text-3xl" style="color:#166534" x-text="stats.ok"></b></div>
+    <div class="bg-white rounded-xl border p-4" style="border-color:#ecd9b0;background:var(--zn-gold-soft)"><p class="text-sm" style="color:#8a6420">已收金額</p><b class="text-3xl" x-text="ZN.money(stats.money)"></b></div>
+  </div>
+
+  <!-- 報名清單 -->
+  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <!-- 手機：堆疊卡片 -->
+    <div class="md:hidden divide-y divide-slate-100">
+      <template x-for="r in rows" :key="'m'+r.no">
+        <div class="p-4 space-y-2">
+          <div class="flex items-center justify-between gap-2 flex-wrap"><b class="text-lg" x-text="r.no"></b><span :class="ZN.badge(r.status)" x-text="r.status"></span></div>
+          <dl class="zn-kv" style="grid-template-columns:5.5rem 1fr;font-size:1rem">
+            <dt>報名日期</dt><dd x-text="ZN.roc(r.at)"></dd>
+            <dt>報名人</dt><dd x-text="r.name"></dd>
+            <dt>手機</dt><dd x-text="ZN.maskPhone(r.phone)"></dd>
+            <dt>項目</dt><dd x-text="itemsText(r)"></dd>
+            <dt>金額</dt><dd x-text="ZN.money(r.amount)"></dd>
+            <dt>末五碼</dt><dd x-text="r.report ? r.report.last5 : '—'"></dd>
+            <dt>回報日期</dt><dd x-text="r.report ? ZN.roc(r.report.date) : '—'"></dd>
+          </dl>
+          <div class="flex gap-2 pt-1">
+            <button class="btn btn-soft flex-1" @click="sel=r; modal='detail'"><i data-lucide="eye" class="w-5 h-5"></i>檢視</button>
+            <button class="btn btn-primary flex-1" x-show="r.status==='對帳中' || r.status==='待付款'" @click="openRecon(r)"><i data-lucide="badge-check" class="w-5 h-5"></i>對帳</button>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="overflow-x-auto hidden md:block">
+      <table class="w-full text-[1rem]">
+        <thead class="bg-gray-50 text-left text-slate-600">
+          <tr>
+            <th class="px-3 py-3 whitespace-nowrap">報名編號</th><th class="px-3 py-3 whitespace-nowrap">報名日期</th><th class="px-3 py-3 whitespace-nowrap">報名人</th>
+            <th class="px-3 py-3 whitespace-nowrap">手機</th><th class="px-3 py-3">項目摘要</th><th class="px-3 py-3 text-right">金額</th>
+            <th class="px-3 py-3 whitespace-nowrap">末五碼</th><th class="px-3 py-3 whitespace-nowrap">回報日期</th><th class="px-3 py-3 whitespace-nowrap">狀態</th><th class="px-3 py-3 whitespace-nowrap">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <template x-for="r in rows" :key="r.no">
+            <tr class="hover:bg-slate-50">
+              <td class="px-3 py-3 font-semibold whitespace-nowrap" x-text="r.no"></td>
+              <td class="px-3 py-3 whitespace-nowrap" x-text="ZN.roc(r.at)"></td>
+              <td class="px-3 py-3 whitespace-nowrap" x-text="r.name"></td>
+              <td class="px-3 py-3 whitespace-nowrap" x-text="ZN.maskPhone(r.phone)"></td>
+              <td class="px-3 py-3 min-w-[8rem]" x-text="itemsText(r)"></td>
+              <td class="px-3 py-3 text-right whitespace-nowrap" x-text="ZN.money(r.amount)"></td>
+              <td class="px-3 py-3" x-text="r.report ? r.report.last5 : '—'"></td>
+              <td class="px-3 py-3 whitespace-nowrap" x-text="r.report ? ZN.roc(r.report.date) : '—'"></td>
+              <td class="px-3 py-3 whitespace-nowrap"><span :class="ZN.badge(r.status)" x-text="r.status"></span></td>
+              <td class="px-3 py-3 whitespace-nowrap">
+                <div class="flex gap-2">
+                  <button class="btn btn-soft btn-sm btn-square" title="檢視" @click="sel=r; modal='detail'" aria-label="檢視"><i data-lucide="eye" class="w-5 h-5"></i></button>
+                  <button class="btn btn-primary btn-sm" x-show="r.status==='對帳中' || r.status==='待付款'" @click="openRecon(r)"><i data-lucide="badge-check" class="w-5 h-5"></i>對帳</button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <template x-if="!rows.length">
+      <div class="p-10 text-center text-slate-500"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2"></i><p>沒有符合條件的報名資料</p></div>
+    </template>
+  </div>
+</div>
+</template>
+
+</main>
+</div>
+
+<!-- ============ 精靈底部固定列（僅報名流程） ============ -->
+<template x-if="view==='wizard' && cur">
+<div class="fixed bottom-0 inset-x-0 z-50 bg-white border-t border-slate-200 no-print" style="padding-bottom:env(safe-area-inset-bottom)">
+  <div class="mx-auto px-4 lg:px-6 py-3 flex items-center gap-3 max-w-lg sm:max-w-3xl lg:max-w-6xl">
+    <template x-if="step===1">
+      <div class="flex items-center gap-3 w-full">
+        <div class="flex-1"><p class="text-sm text-slate-500">共 <span x-text="totalQty"></span> 位</p><b class="text-2xl" x-text="ZN.money(total)"></b></div>
+        <button class="btn btn-ghost-gray" @click="go('intro')">取消</button>
+        <button class="btn btn-primary btn-lg" :disabled="totalQty===0" @click="next1()">下一步</button>
+      </div>
+    </template>
+    <template x-if="step===2">
+      <div class="flex items-center gap-3 w-full">
+        <button class="btn btn-ghost-gray" @click="step=1; scrollTop()">上一步</button>
+        <button class="btn btn-primary btn-lg flex-1" @click="next2()">下一步</button>
+      </div>
+    </template>
+    <template x-if="step===3">
+      <div class="flex items-center gap-3 w-full">
+        <button class="btn btn-ghost-gray" @click="step=2; scrollTop()">上一步</button>
+        <button class="btn btn-primary btn-lg flex-1" :disabled="!agree" @click="submit()">送出報名</button>
+      </div>
+    </template>
+  </div>
+</div>
+</template>
+
+<!-- ============ DaisyUI Modals（管理端） ============ -->
+<div class="no-print">
+  <!-- 登入 -->
+  <div class="modal" :class="modal==='login' && 'modal-open'">
+    <div class="modal-box">
+      <h3 class="text-xl font-bold mb-4"><i data-lucide="lock" class="w-5 h-5 inline"></i> 管理端登入</h3>
+      <div class="space-y-3">
+        <div><label class="zn-label">帳號</label><input class="input w-full" x-model="login.user" autocomplete="off"></div>
+        <div><label class="zn-label">密碼</label><input class="input w-full" type="password" x-model="login.pass" autocomplete="off" @keydown.enter="doLogin()"></div>
+        <p class="zn-error-text" x-show="login.err" x-text="login.err"></p>
+        <p class="zn-hint">雛形示範：帳號 admin，密碼隨意輸入即可。</p>
+      </div>
+      <div class="modal-action"><button class="btn btn-ghost-gray" @click="modal=''">取消</button><button class="btn btn-primary" @click="doLogin()">登入</button></div>
+    </div>
+    <div class="modal-backdrop" @click="modal=''"></div>
+  </div>
+
+  <!-- 檢視 -->
+  <div class="modal" :class="modal==='detail' && 'modal-open'">
+    <div class="modal-box max-w-2xl p-4 sm:p-6 w-[95%] sm:w-11/12" x-show="sel">
+      <template x-if="sel">
+        <div>
+          <div class="flex items-center justify-between mb-3"><h3 class="text-xl font-bold" x-text="sel.no"></h3><span :class="ZN.badge(sel.status)" x-text="sel.status"></span></div>
+          <dl class="zn-kv mb-3">
+            <dt>法會</dt><dd x-text="cer(sel.ceremony) ? cer(sel.ceremony).name : '-'"></dd>
+            <dt>報名人</dt><dd x-text="sel.name+'（'+sel.phone+'）'"></dd>
+            <dt>Email</dt><dd x-text="sel.email || '-'"></dd>
+            <dt>地址</dt><dd x-text="sel.addr || '-'"></dd>
+            <dt>報名日期</dt><dd x-text="'民國 '+ZN.roc(sel.at)"></dd>
+            <dt>應收金額</dt><dd x-text="ZN.money(sel.amount)"></dd>
+            <dt>繳費回報</dt><dd x-text="sel.report ? '末五碼 '+sel.report.last5+'／'+ZN.roc(sel.report.date)+'／'+ZN.money(sel.report.amount) : '尚未回報'"></dd>
+          </dl>
+          <div class="overflow-x-auto"><table class="w-full text-base border border-slate-200 rounded-lg overflow-hidden min-w-[30rem]">
+            <thead class="bg-gray-50 text-left"><tr><th class="px-4 py-3">項目</th><th class="px-4 py-3">位數</th><th class="px-4 py-3">牌位對象</th><th class="px-4 py-3">陽上</th></tr></thead>
+            <tbody class="divide-y divide-slate-100"><template x-for="it in sel.items" :key="it.key"><tr><td class="px-4 py-3" x-text="it.name"></td><td class="px-4 py-3" x-text="it.qty"></td><td class="px-4 py-3" x-text="it.target"></td><td class="px-4 py-3" x-text="it.yang"></td></tr></template></tbody>
+          </table></div>
+          <div class="modal-action">
+            <button class="btn btn-danger" x-show="sel.status==='待付款' || sel.status==='對帳中'" @click="askCancel(sel)">取消此報名</button>
+            <button class="btn btn-primary" @click="modal=''">關閉</button>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="modal-backdrop" @click="modal=''"></div>
+  </div>
+
+  <!-- 對帳 -->
+  <div class="modal" :class="modal==='recon' && 'modal-open'">
+    <div class="modal-box max-w-2xl p-4 sm:p-6 w-[95%] sm:w-11/12">
+      <template x-if="sel && modal==='recon'">
+        <div>
+          <h3 class="text-xl font-bold mb-1">對帳</h3>
+          <p class="text-slate-500 mb-4"><span x-text="sel.no"></span>／<span x-text="sel.name"></span></p>
+          <template x-if="!sel.report"><div class="zn-note zn-note-warn mb-3">報名人尚未回報繳費資料，無法對帳。</div></template>
+          <div class="overflow-x-auto"><table class="w-full text-base border border-slate-200 rounded-lg overflow-hidden min-w-[30rem]">
+            <thead class="bg-gray-50 text-left"><tr><th class="px-4 py-3">比對項目</th><th class="px-4 py-3">應收／銀行入帳</th><th class="px-4 py-3">報名人回報</th><th class="px-4 py-3">結果</th></tr></thead>
+            <tbody>
+              <tr :class="!sel.report ? '' : (amtOk ? 'bg-green-50' : 'bg-red-50')">
+                <td class="px-4 py-3">金額</td><td class="px-4 py-3" x-text="ZN.money(sel.amount)"></td><td class="px-4 py-3" x-text="sel.report ? ZN.money(sel.report.amount) : '—'"></td>
+                <td class="px-4 py-3 font-bold"><span x-show="sel.report && amtOk" class="text-green-700">✓ 相符</span><span x-show="sel.report && !amtOk" class="text-red-700">✗ 不符</span></td>
+              </tr>
+              <tr :class="l5Ok===null ? '' : (l5Ok ? 'bg-green-50' : 'bg-red-50')">
+                <td class="px-4 py-3">末五碼</td><td class="px-4 py-3" x-text="bankLast5 || '（請於下方輸入）'"></td><td class="px-4 py-3" x-text="sel.report ? sel.report.last5 : '—'"></td>
+                <td class="px-4 py-3 font-bold"><span x-show="l5Ok===true" class="text-green-700">✓ 相符</span><span x-show="l5Ok===false" class="text-red-700">✗ 不符</span><span x-show="l5Ok===null" class="text-slate-400">待輸入</span></td>
+              </tr>
+            </tbody>
+          </table></div>
+          <div class="mt-4"><label class="zn-label">銀行入帳末五碼</label><input class="input w-full max-w-xs" x-model="bankLast5" inputmode="numeric" maxlength="5" placeholder="5 位數字"></div>
+          <div class="modal-action flex-wrap">
+            <button class="btn btn-ghost-gray" @click="modal=''">關閉</button>
+            <button class="btn btn-danger" :disabled="!sel.report" @click="rejectReason=''; modal='reject'">退回</button>
+            <button class="btn btn-success" :disabled="!sel.report" @click="askConfirmPay()">確認入帳</button>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="modal-backdrop" @click="modal=''"></div>
+  </div>
+
+  <!-- 退回（填原因） -->
+  <div class="modal" :class="modal==='reject' && 'modal-open'">
+    <div class="modal-box">
+      <h3 class="text-xl font-bold mb-3">退回報名人</h3>
+      <label class="zn-label"><span class="req">*</span>退回原因</label>
+      <textarea class="textarea w-full" rows="3" x-model="rejectReason" placeholder="例：金額不符、查無此筆入帳"></textarea>
+      <div class="flex flex-wrap gap-2 mt-2">
+        <button class="btn btn-soft btn-sm" @click="rejectReason='轉帳金額與應繳金額不符'">金額不符</button>
+        <button class="btn btn-soft btn-sm" @click="rejectReason='查無此筆入帳，請確認末五碼'">查無入帳</button>
+      </div>
+      <p class="zn-error-text" x-show="rejectErr">請填寫退回原因</p>
+      <div class="modal-action"><button class="btn btn-ghost-gray" @click="modal='recon'">返回</button><button class="btn btn-danger" @click="doReject()">確定退回</button></div>
+    </div>
+    <div class="modal-backdrop" @click="modal='recon'"></div>
+  </div>
+
+  <!-- 通用確認對話框 -->
+  <div class="modal" :class="modal==='confirm' && 'modal-open'">
+    <div class="modal-box">
+      <h3 class="text-xl font-bold mb-2" x-text="confirmCfg.title"></h3>
+      <p class="text-lg" x-text="confirmCfg.msg"></p>
+      <div class="modal-action">
+        <button class="btn btn-ghost-gray" @click="modal=prevModal">返回</button>
+        <button class="btn" :class="confirmCfg.danger ? 'btn-danger' : 'btn-success'" @click="runConfirm()" x-text="confirmCfg.okText"></button>
+      </div>
+    </div>
+    <div class="modal-backdrop" @click="modal=prevModal"></div>
+  </div>
+</div>
+
+<!-- ============ Toast ============ -->
+<div class="toast toast-top toast-center z-[100] no-print" style="top:.75rem">
+  <template x-for="t in $store.toast.items" :key="t.id">
+    <div class="alert shadow-lg text-lg" :class="t.type==='error' ? 'alert-error' : 'alert-success'"><span x-text="t.msg"></span></div>
+  </template>
+</div>
+
+<!-- ============ 列印用：報名回執 ============ -->
+<div class="print-only p-8" style="color:#000">
+  <template x-if="rc">
+    <div>
+      <div class="text-center mb-4"><h1 class="text-2xl font-bold">慈恩園 法會報名回執</h1><p x-text="cer(rc.ceremony) ? cer(rc.ceremony).name : ''"></p></div>
+      <table class="w-full border-collapse" style="border:1px solid #000">
+        <tbody>
+          <tr><th class="text-left p-2 border" style="width:9rem">報名編號</th><td class="p-2 border" x-text="rc.no"></td></tr>
+          <tr><th class="text-left p-2 border">報名人</th><td class="p-2 border" x-text="rc.name+'　'+rc.phone"></td></tr>
+          <tr><th class="text-left p-2 border">報名日期</th><td class="p-2 border" x-text="ZN.rocLong(rc.at)"></td></tr>
+          <tr><th class="text-left p-2 border">法會日期</th><td class="p-2 border" x-text="cer(rc.ceremony) ? '民國 '+rocRange(cer(rc.ceremony))+'　'+cer(rc.ceremony).place : ''"></td></tr>
+          <tr><th class="text-left p-2 border">目前狀態</th><td class="p-2 border" x-text="rc.status"></td></tr>
+        </tbody>
+      </table>
+      <h2 class="font-bold mt-4 mb-1">報名項目</h2>
+      <table class="w-full border-collapse" style="border:1px solid #000">
+        <thead><tr><th class="p-2 border text-left">項目</th><th class="p-2 border">位數</th><th class="p-2 border text-left">牌位對象</th><th class="p-2 border text-left">陽上</th></tr></thead>
+        <tbody><template x-for="it in rc.items" :key="it.key"><tr><td class="p-2 border" x-text="it.name"></td><td class="p-2 border text-center" x-text="it.qty"></td><td class="p-2 border" x-text="it.target"></td><td class="p-2 border" x-text="it.yang"></td></tr></template></tbody>
+      </table>
+      <p class="text-xl font-bold mt-4">應繳金額：<span x-text="ZN.money(rc.amount)"></span>　繳費期限：<span x-text="ZN.rocLong(addDays(rc.at,3))"></span></p>
+      <p class="mt-2">轉帳資訊：<span x-text="bank.name+'（'+bank.code+'）　帳號 '+bank.account+'　戶名 '+bank.holder"></span></p>
+      <p class="mt-2">轉帳後請至「報名查詢」回報帳號末五碼。洽詢電話：<span x-text="site.tel"></span></p>
+    </div>
+  </template>
+</div>
+
+<div class="zn-proto-flag" :style="view==='wizard' ? 'bottom:6rem' : ''">雛形 Prototype · 法會報名</div>
+
+<script>
+/* ============================================================
+   法會報名雛形：單一 Alpine root（view 狀態切換各畫面）
+   ============================================================ */
+function app() {
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const pad = n => String(n).padStart(2, '0');
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const MEMBER_ID = 'C0001024';
+
+  return {
+    /* ---- 全域狀態 ---- */
+    view: 'list',
+    ceremonies: clone(ZN.CEREMONIES),      // 深拷貝：session 內可變
+    regs: clone(ZN.CEREMONY_REGS),
+    bank: ZN.BANK, site: ZN.SITE,
+    schedule: [
+      { t: '08:30', d: '報到、入座' }, { t: '09:00', d: '啟請、諷誦經文' },
+      { t: '10:30', d: '獻供、迴向祈福' }, { t: '11:30', d: '圓滿，備有素齋' },
+    ],
+    iso,
+
+    /* ---- 報名 wizard ---- */
+    curId: null, step: 1, qty: {}, tablets: [],
+    form: { name: '', phone: '', email: '', addr: '' },
+    memberOn: false, tried2: false, agree: false, noticeOpen: false,
+    lastReg: null, rc: null,
+
+    /* ---- 查詢 ---- */
+    q: { phone: '', key: '' }, qErr: '', qDone: false, qResults: [], rf: {},
+
+    /* ---- 管理端 ---- */
+    isAdmin: false, modal: '', prevModal: '',
+    login: { user: 'admin', pass: '1234', err: '' },
+    f: { cer: '', status: '', kw: '' }, af: { cer: '', status: '', kw: '' },
+    sel: null, bankLast5: '', rejectReason: '', rejectErr: false,
+    confirmCfg: { title: '', msg: '', okText: '確定', danger: false, ok: null },
+
+    boot() {
+      // 畫面變動後自動重繪 lucide 圖示（debounce，createIcons 無新圖示時不再觸發變動）
+      const run = () => { if (window.lucide) window.lucide.createIcons(); };
+      let t;
+      new MutationObserver(() => { clearTimeout(t); t = setTimeout(run, 30); }).observe(document.body, { childList: true, subtree: true });
+      run();
+    },
+    toast(msg, type) { Alpine.store('toast').show(msg, type); },
+    scrollTop() { window.scrollTo(0, 0); },
+    go(v) { this.view = v; this.scrollTop(); },
+    addDays(s, n) { const d = new Date(s.replace(/-/g, '/')); d.setDate(d.getDate() + n); return iso(d); },
+    rocRange(c) { return c.date2 && c.date2 !== c.date ? `${ZN.roc(c.date)} ～ ${ZN.roc(c.date2)}` : ZN.roc(c.date); },
+    cbadge(s) { return s === '即將開放' ? 'zn-badge zn-badge-purple' : ZN.badge(s); },
+    itemsText(r) { return r.items.map(i => `${i.name}×${i.qty}`).join('、'); },
+    copy(text) {
+      const ok = () => this.toast('已複製：' + text);
+      const fb = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch (e) { /* 雛形忽略 */ }
+        ta.remove(); ok();
+      };
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(ok, fb); else fb();
+    },
+    printReceipt(r) { this.rc = r; this.$nextTick(() => setTimeout(() => window.print(), 100)); },
+
+    /* ---- 法會資料 ---- */
+    get cur() { return this.ceremonies.find(c => c.id === this.curId); },
+    cer(id) { return this.ceremonies.find(c => c.id === id); },
+    cstat(c) {
+      if (c.status === '即將開放') return c.status;
+      if (iso(new Date()) > c.deadline) return '已截止';
+      if (c.taken >= c.quota) return '已額滿';
+      return c.status;
+    },
+    canReg(c) { return this.cstat(c) === '報名中' && c.options.length > 0; },
+    left(c) { return Math.max(0, c.quota - c.taken); },
+    pct(c) { return c.quota ? Math.min(100, Math.round(c.taken / c.quota * 100)) : 0; },
+    openIntro(id) { this.curId = id; this.noticeOpen = false; this.go('intro'); },
+
+    /* ---- 畫面 3：wizard ---- */
+    startWizard() {
+      if (!this.cur || !this.canReg(this.cur)) { this.toast('此法會目前無法報名', 'error'); return; }
+      this.qty = {}; this.tablets = []; this.step = 1; this.tried2 = false; this.agree = false; this.memberOn = false;
+      this.form = { name: '', phone: '', email: '', addr: '' };
+      this.go('wizard');
+    },
+    get totalQty() { return Object.values(this.qty).reduce((a, b) => a + b, 0); },
+    get total() { return this.cur ? this.cur.options.reduce((s, o) => s + o.price * (this.qty[o.key] || 0), 0) : 0; },
+    canInc(o) { return (this.qty[o.key] || 0) < 10 && this.totalQty < this.left(this.cur); },
+    inc(o) { if (this.canInc(o)) this.qty[o.key] = (this.qty[o.key] || 0) + 1; },
+    dec(o) { if ((this.qty[o.key] || 0) > 0) this.qty[o.key]--; },
+    next1() {
+      if (!this.totalQty) return;
+      // 依數量建立牌位，已填寫的內容保留
+      const old = this.tablets, out = [];
+      this.cur.options.forEach(o => {
+        const prev = old.filter(t => t.key === o.key);
+        for (let i = 0; i < (this.qty[o.key] || 0); i++)
+          out.push(prev[i] || { key: o.key, name: o.name, price: o.price, target: '', yang: '', yangEdited: false });
+      });
+      this.tablets = out; this.step = 2; this.scrollTop();
+    },
+    isLiving(t) { return t.key === 'xiaozai'; },
+    phOf(t) { return { chao: '例：王陳月娥', zuxian: '例：王氏歷代祖先', yuanqin: '例：王氏冤親債主', xiaozai: '例：王大明' }[t.key] || '請輸入姓名'; },
+    yangOf(t) { return t.yangEdited ? t.yang : this.form.name; },
+    get errs() {
+      const f = this.form, e = {};
+      if (!f.name.trim()) e.name = '請填寫報名人姓名';
+      if (!f.phone.trim()) e.phone = '請填寫手機號碼';
+      else if (!/^09\d{8}$/.test(f.phone.trim())) e.phone = '手機需為 10 碼，例如 0912345678';
+      if (f.email.trim() && !/^\S+@\S+\.\S+$/.test(f.email.trim())) e.email = 'Email 格式不正確';
+      e.t = this.tablets.map(t => ({
+        target: t.target.trim() ? '' : (this.isLiving(t) ? '請填寫祈福者姓名' : '請填寫往生者（祖先）姓名'),
+        yang: this.yangOf(t).trim() ? '' : '請填寫陽上報恩人',
+      }));
+      e.bad = !!(e.name || e.phone || e.email || e.t.some(x => x.target || x.yang));
+      return e;
+    },
+    next2() {
+      this.tried2 = true;
+      if (this.errs.bad) {
+        this.toast('請檢查標示紅字的欄位', 'error');
+        this.$nextTick(() => { const el = document.querySelector('.has-err'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+        return;
+      }
+      this.step = 3; this.scrollTop();
+    },
+    // 會員一鍵帶入（雛形固定帶入 王大明）
+    get memberDeceased() {
+      return ZN.assetsOf(MEMBER_ID).flatMap(a => a.deceased).map(d => ({ name: d.name, label: `${d.title} ${d.name}` }));
+    },
+    fillMember() {
+      const c = ZN.customerOf(MEMBER_ID);
+      this.form = { name: c.name, phone: c.phone, email: c.email, addr: c.addr };
+      this.memberOn = true; this.toast('已帶入會員資料');
+    },
+    useDeceased(d) {
+      const kind = d.name.includes('歷代祖先') ? 'zuxian' : 'chao';
+      const t = this.tablets.find(x => x.key === kind && !x.target.trim());
+      if (!t) { this.toast('沒有可帶入的空白牌位', 'error'); return; }
+      t.target = d.name; this.toast('已帶入：' + d.label);
+    },
+    // 直書牌位預覽（HTML 字串，使用者輸入先 escape）
+    tabletHTML(t, small) {
+      const parts = {
+        chao: ['佛力超薦', '往生蓮位'], zuxian: ['佛力超薦', '歷代祖先蓮位'],
+        yuanqin: ['冤親債主', '蓮位'], xiaozai: ['消災延壽', '祿位'],
+      }[t.key] || ['佛力超薦', '蓮位'];
+      const nm = t.target.trim() || '○○○', yg = this.yangOf(t).trim() || '○○○';
+      const chars = parts[0].length + nm.length + parts[1].length;
+      const h = Math.max(15, chars * 1.9 + 3.5);
+      return `<div class="tablet ${small ? 'tablet-sm' : ''}" style="height:${h}rem"><div class="tablet-main"><span class="t-head">${parts[0]}</span> <span class="t-name">${esc(nm)}</span> <span class="t-tail">${parts[1]}</span></div><div class="tablet-yang">陽上 ${esc(yg)} 敬薦</div></div>`;
+    },
+    submit() {
+      if (!this.agree) return;
+      const grp = {};
+      this.tablets.forEach(t => {
+        const g = grp[t.key] || (grp[t.key] = { key: t.key, name: t.name, qty: 0, targets: [], yangs: [] });
+        g.qty++; g.targets.push(t.target.trim());
+        const y = this.yangOf(t).trim(); if (!g.yangs.includes(y)) g.yangs.push(y);
+      });
+      const items = Object.values(grp).map(g => ({ key: g.key, name: g.name, qty: g.qty, target: g.targets.join('、'), yang: g.yangs.join('、') }));
+      const max = Math.max(0, ...this.regs.map(r => parseInt(r.no.slice(-6), 10)));
+      const reg = {
+        no: 'CE-115-' + String(max + 1).padStart(6, '0'), ceremony: this.curId,
+        name: this.form.name.trim(), phone: this.form.phone.trim(), email: this.form.email.trim(), addr: this.form.addr.trim(),
+        items, amount: this.total, status: '待付款', at: iso(new Date()),
+      };
+      this.cur.taken += this.totalQty;
+      this.regs.unshift(reg);
+      this.lastReg = this.regs[0];   // 取回 reactive 代理
+      this.go('done');
+    },
+    get bankRows() {
+      const b = this.bank;
+      return [{ k: '銀行', v: b.name }, { k: '銀行代碼', v: b.code }, { k: '帳號', v: b.account }, { k: '戶名', v: b.holder }];
+    },
+    goReport() { this.q = { phone: this.lastReg.phone, key: this.lastReg.no }; this.go('query'); this.search(); },
+
+    /* ---- 畫面 5：報名查詢 ---- */
+    statusInfo(s) {
+      return {
+        '待付款': { text: '尚未收到您的款項', cls: 'zn-note-warn' },
+        '對帳中': { text: '已收到您的回報，會計核對中', cls: 'zn-note-info' },
+        '報名成功': { text: '已完成報名，法會當日將為您誦經祈福', cls: 'zn-note-success' },
+        '已取消': { text: '此報名已取消，如有疑問請電洽服務處', cls: 'zn-note-error' },
+      }[s] || { text: s, cls: 'zn-note-info' };
+    },
+    search() {
+      const p = this.q.phone.trim(), k = this.q.key.trim();
+      this.qErr = '';
+      if (!p || !k) { this.qErr = '請填寫手機號碼，以及報名編號或姓名'; this.qDone = false; this.qResults = []; return; }
+      const ku = k.toUpperCase();
+      this.qResults = this.regs.filter(r => r.phone === p && (r.no.toUpperCase() === ku || r.name === k));
+      this.qDone = true;
+      this.qResults.forEach(r => {
+        if (!this.rf[r.no]) this.rf[r.no] = { last5: '', date: iso(new Date()), amount: r.amount, tried: false };
+      });
+    },
+    submitReport(r) {
+      const f = this.rf[r.no]; f.tried = true;
+      if (!/^\d{5}$/.test(f.last5) || !f.date || !(Number(f.amount) > 0)) { this.toast('請檢查標示紅字的欄位', 'error'); return; }
+      r.report = { last5: f.last5, date: f.date, amount: Number(f.amount) };
+      r.returnReason = '';
+      r.status = '對帳中';
+      this.toast('已送出回報，會計核對中');
+    },
+
+    /* ---- 畫面 6：管理端 ---- */
+    openAdmin() { if (this.isAdmin) this.go('admin'); else { this.login.err = ''; this.modal = 'login'; } },
+    doLogin() {
+      if (this.login.user.trim() === 'admin' && this.login.pass) { this.isAdmin = true; this.modal = ''; this.go('admin'); this.toast('登入成功'); }
+      else this.login.err = '帳號或密碼不正確';
+    },
+    logout() { this.isAdmin = false; this.go('list'); this.toast('已登出'); },
+    applyFilter() { this.af = { ...this.f }; },
+    resetFilter() { this.f = { cer: '', status: '', kw: '' }; this.af = { ...this.f }; },
+    get rows() {
+      const a = this.af, kw = a.kw.trim().toLowerCase();
+      return this.regs.filter(r => (!a.cer || r.ceremony === a.cer) && (!a.status || r.status === a.status)
+        && (!kw || r.name.toLowerCase().includes(kw) || r.phone.includes(kw) || r.no.toLowerCase().includes(kw)));
+    },
+    get stats() {
+      const l = this.regs.filter(r => !this.af.cer || r.ceremony === this.af.cer), n = s => l.filter(r => r.status === s).length;
+      return { total: l.length, pending: n('待付款'), check: n('對帳中'), ok: n('報名成功'), money: l.filter(r => r.status === '報名成功').reduce((s, r) => s + r.amount, 0) };
+    },
+    openRecon(r) { this.sel = r; this.bankLast5 = ''; this.modal = 'recon'; },
+    get amtOk() { return !!(this.sel && this.sel.report && this.sel.report.amount === this.sel.amount); },
+    get l5Ok() {
+      if (!this.sel || !this.sel.report || this.bankLast5.length !== 5) return null;
+      return this.bankLast5 === this.sel.report.last5;
+    },
+    ask(cfg) { this.confirmCfg = cfg; this.prevModal = this.modal; this.modal = 'confirm'; },
+    runConfirm() { const fn = this.confirmCfg.ok; this.modal = ''; if (fn) fn(); },
+    askConfirmPay() {
+      const warn = (!this.amtOk || this.l5Ok === false) ? '（注意：金額或末五碼與回報不符）' : '';
+      this.ask({ title: '確認入帳？', msg: `${this.sel.no} 金額 ${ZN.money(this.sel.amount)} 確認已入帳，狀態將改為「報名成功」。${warn}`, okText: '確認入帳', danger: false,
+        ok: () => { this.sel.status = '報名成功'; this.sel.confirmedAt = iso(new Date()); this.toast('已確認入帳並通知報名人'); } });
+    },
+    doReject() {
+      if (!this.rejectReason.trim()) { this.rejectErr = true; return; }
+      this.rejectErr = false;
+      this.sel.status = '待付款'; this.sel.returnReason = this.rejectReason.trim(); this.sel.report = null;
+      this.modal = ''; this.toast('已退回，報名人需重新回報繳費');
+    },
+    askCancel(r) {
+      this.ask({ title: '取消此報名？', msg: `${r.no}（${r.name}）取消後名額將釋出，此動作無法復原。`, okText: '確定取消', danger: true,
+        ok: () => {
+          r.status = '已取消';
+          const c = this.cer(r.ceremony); if (c) c.taken = Math.max(0, c.taken - r.items.reduce((s, i) => s + i.qty, 0));
+          this.toast('已取消報名');
+        } });
+    },
+  };
+}
+</script>
+</body>
+</html>
